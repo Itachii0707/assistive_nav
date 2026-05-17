@@ -1,0 +1,66 @@
+#:kivy 2.3.0
+
+<NavigationApp>:
+    orientation: 'vertical'
+
+    Image:
+        id: camera_feed
+        size_hint: 1, 0.75
+        allow_stretch: True
+        keep_ratio: True
+
+    BoxLayout:
+        size_hint: 1, 0.08
+        padding: 5
+        canvas.before:
+            Color:
+                rgba: 0.1, 0.1, 0.1, 0.9
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        Label:
+            id: fps_label
+            text: 'FPS: --'
+            font_size: '14sp'
+            size_hint_x: 0.25
+
+        Label:
+            id: model_label
+            text: 'Model: --'
+            font_size: '14sp'
+            size_hint_x: 0.5
+
+        Label:
+            id: device_label
+            text: 'Device: --'
+            font_size: '14sp'
+            size_hint_x: 0.25
+
+    Label:
+        id: direction_label
+        text: 'Initializing...'
+        font_size: '22sp'
+        bold: True
+        size_hint: 1, 0.09
+        color: 0, 1, 0, 1
+        canvas.before:
+            Color:
+                rgba: 0.05, 0.05, 0.05, 0.95
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+    Label:
+        id: scene_label
+        text: ''
+        font_size: '16sp'
+        size_hint: 1, 0.08
+        color: 0.8, 0.8, 0.8, 1
+        canvas.before:
+            Color:
+                rgba: 0.15, 0.15, 0.15, 0.9
+            Rectangle:
+                pos: self.pos
+                size: self.size
+                

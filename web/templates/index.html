@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Assistive Navigation</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-glass: rgba(18, 18, 26, 0.85);
+            --border: rgba(255, 255, 255, 0.06);
+            --text-primary: #e8e8f0;
+            --text-dim: #6b6b80;
+            --accent-green: #00e676;
+            --accent-red: #ff1744;
+            --accent-orange: #ff9100;
+            --accent-cyan: #00e5ff;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* TOP BAR */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            min-height: 44px;
+            flex-shrink: 0;
+        }
+
+        .top-bar .title { font-size: 14px; font-weight: 600; }
+        .top-bar .stats {
+            display: flex; gap: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px; color: var(--text-dim);
+        }
+        .stat-value { color: var(--accent-cyan); font-weight: 700; }
+
+        /* CAMERA */
+        .camera-area {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #000;
+            min-height: 0;
+        }
+
+        #videoElement {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            /* Mirror front camera for natural feel */
+            transform: scaleX(-1);
+        }
+
+        #videoElement.rear {
+            transform: scaleX(1);
+        }
+
+        #canvasOverlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+        }
+
+        #captureCanvas { display: none; }
+
+        /* STATUS BADGES */
+        .status-overlay {
+            position: absolute;
+            top: 8px; left: 8px; right: 8px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .status-badge {
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 5px 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+        }
+
+        /* DIRECTION BANNER */
+        .direction-banner {
+            padding: 10px 16px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .direction-banner.clear { color: var(--accent-green); }
+        .direction-banner.warning { color: var(--accent-orange); }
+        .direction-banner.danger {
+            color: var(--accent-red);
+            animation: pulse-danger 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse-danger {
+            0%, 100% { background: var(--bg-card); }
+            50% { background: rgba(255, 23, 68, 0.15); }
+        }
+
+        /* SCENE BAR */
+        .scene-bar {
+            padding: 6px 16px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-dim);
+            background: var(--bg-dark);
+            border-top: 1px solid var(--border);
+            min-height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        /* CONTROLS */
+        .controls-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 9px 18px;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .btn-start { background: var(--accent-green); color: #000; }
+        .btn-start:hover { transform: scale(1.05); }
+        .btn-start:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+        .btn-stop { background: var(--accent-red); color: #fff; }
+        .btn-mute {
+            background: rgba(255,255,255,0.08);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+        .btn-muted {
+            background: rgba(255, 23, 68, 0.2);
+            color: var(--accent-red);
+            border: 1px solid var(--accent-red);
+        }
+
+        /* START SCREEN */
+        .start-screen {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-dark);
+            z-index: 20;
+            gap: 20px;
+            padding: 24px;
+        }
+
+        .start-screen h1 {
+            font-size: clamp(20px, 5vw, 28px);
+            font-weight: 800;
+            text-align: center;
+        }
+
+        .start-screen p {
+            color: var(--text-dim);
+            font-size: 14px;
+            text-align: center;
+            max-width: 320px;
+            line-height: 1.6;
+        }
+
+        .start-screen .icon { font-size: 56px; }
+        .hidden { display: none !important; }
+
+        /* CONNECTION DOT */
+        .connection-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            display: inline-block; margin-right: 6px;
+        }
+        .connected { background: var(--accent-green); }
+        .disconnected { background: var(--accent-red); }
+        .connecting { background: var(--accent-orange); animation: blink 1s infinite; }
+
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+        @media (max-width: 480px) {
+            .top-bar .title { font-size: 11px; }
+            .top-bar .stats { gap: 8px; font-size: 10px; }
+            .direction-banner { font-size: 16px; min-height: 44px; }
+            .scene-bar { font-size: 11px; }
+            .btn { padding: 8px 14px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+
+        <!-- TOP BAR -->
+        <div class="top-bar">
+            <div class="title">
+                <span class="connection-dot disconnected" id="connDot"></span>
+                ASSISTIVE NAV
+            </div>
+            <div class="stats">
+                <span>FPS: <span class="stat-value" id="fpsDisplay">--</span></span>
+                <span>OBJ: <span class="stat-value" id="objDisplay">0</span></span>
+                <span id="msDisplay" style="color:var(--text-dim)">-- ms</span>
+            </div>
+        </div>
+
+        <!-- CAMERA AREA -->
+        <div class="camera-area">
+            <!-- Start screen -->
+            <div class="start-screen" id="startScreen">
+                <div class="icon">&#128065;</div>
+                <h1>Assistive Navigation</h1>
+                <p>Real-time obstacle detection with voice guidance. Works on phone and PC.</p>
+                <button class="btn btn-start" id="btnInit" onclick="startSystem()">
+                    START CAMERA
+                </button>
+                <p style="font-size:11px;color:#444;margin-top:-8px;">
+                    Allow camera permission when prompted.
+                </p>
+            </div>
+
+            <video id="videoElement" autoplay playsinline muted></video>
+            <canvas id="canvasOverlay"></canvas>
+            <canvas id="captureCanvas"></canvas>
+
+            <div class="status-overlay" id="statusOverlay" style="display:none;">
+                <div class="status-badge" id="deviceBadge">--</div>
+                <div class="status-badge" id="latencyBadge">-- ms</div>
+            </div>
+        </div>
+
+        <!-- DIRECTION BANNER -->
+        <div class="direction-banner clear" id="directionBanner">
+            INITIALIZING...
+        </div>
+
+        <!-- SCENE BAR -->
+        <div class="scene-bar" id="sceneBar">
+            Point camera at surroundings to begin detection
+        </div>
+
+        <!-- CONTROLS -->
+        <div class="controls-bar">
+            <button class="btn btn-stop hidden" id="btnStop" onclick="stopSystem()">STOP</button>
+            <button class="btn btn-mute hidden" id="btnMute" onclick="toggleMute()">MUTE</button>
+            <button class="btn btn-mute hidden" id="btnFlip" onclick="flipCamera()">FLIP CAM</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+    <script>
+        // ===== STATE =====
+        let socket = null;
+        let video = null;
+        let canvasOverlay = null;
+        let captureCanvas = null;
+        let ctxOverlay = null;
+        let ctxCapture = null;
+        let stream = null;
+        let isRunning = false;
+        let isMuted = false;
+        let useFrontCamera = true;
+        let sendInterval = null;
+        let speechSynth = window.speechSynthesis;
+        let lastSpokenTime = 0;
+
+        // ===== INIT =====
+        function init() {
+            video = document.getElementById('videoElement');
+            canvasOverlay = document.getElementById('canvasOverlay');
+            captureCanvas = document.getElementById('captureCanvas');
+            ctxOverlay = canvasOverlay.getContext('2d');
+            ctxCapture = captureCanvas.getContext('2d');
+            connectSocket();
+        }
+
+        // ===== SOCKET =====
+        function connectSocket() {
+            const dot = document.getElementById('connDot');
+            dot.className = 'connection-dot connecting';
+
+            socket = io({
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionDelay: 1000,
+                reconnectionAttempts: 10,
+            });
+
+            socket.on('connect', () => {
+                dot.className = 'connection-dot connected';
+                console.log('Connected:', socket.id);
+            });
+
+            socket.on('disconnect', () => {
+                dot.className = 'connection-dot disconnected';
+            });
+
+            socket.on('server_info', (data) => {
+                document.getElementById('deviceBadge').textContent = data.device || '--';
+            });
+
+            socket.on('result', handleResult);
+            socket.on('error', (data) => console.error('Server error:', data.message));
+        }
+
+        // ===== START SYSTEM =====
+        async function startSystem() {
+            const btn = document.getElementById('btnInit');
+            btn.textContent = 'STARTING...';
+            btn.disabled = true;
+
+            try {
+                // Request camera with correct facing mode
+                const facingMode = useFrontCamera ? 'user' : 'environment';
+
+                const constraints = {
+                    video: {
+                        facingMode: { ideal: facingMode },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                    },
+                    audio: false,
+                };
+
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+
+                // Check actual facing mode
+                const track = stream.getVideoTracks()[0];
+                const settings = track.getSettings();
+                const actualFacing = settings.facingMode || 'user';
+                useFrontCamera = (actualFacing === 'user');
+
+                // Mirror front camera, normal for rear
+                if (useFrontCamera) {
+                    video.classList.remove('rear');
+                } else {
+                    video.classList.add('rear');
+                }
+
+                await new Promise((resolve) => {
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        resolve();
+                    };
+                });
+
+                // Setup canvas sizes matching actual video
+                const vw = video.videoWidth;
+                const vh = video.videoHeight;
+                canvasOverlay.width = vw;
+                canvasOverlay.height = vh;
+                captureCanvas.width = vw;
+                captureCanvas.height = vh;
+
+                console.log(`Camera: ${vw}x${vh}, facing: ${actualFacing}`);
+
+                // Show controls
+                document.getElementById('startScreen').classList.add('hidden');
+                document.getElementById('btnStop').classList.remove('hidden');
+                document.getElementById('btnMute').classList.remove('hidden');
+                document.getElementById('btnFlip').classList.remove('hidden');
+                document.getElementById('statusOverlay').style.display = 'flex';
+
+                isRunning = true;
+                sendInterval = setInterval(sendFrame, 200); // 5 FPS to server
+
+            } catch (err) {
+                console.error('Camera error:', err);
+                btn.textContent = 'RETRY — TAP HERE';
+                btn.disabled = false;
+                alert('Camera error: ' + err.message + '\n\nMake sure:\n1. Allow camera permission\n2. On Chrome: chrome://flags → insecure origins → add this URL\n3. Or use Firefox');
+            }
+        }
+
+        // ===== STOP SYSTEM =====
+        function stopSystem() {
+            isRunning = false;
+
+            if (sendInterval) {
+                clearInterval(sendInterval);
+                sendInterval = null;
+            }
+
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+
+            video.srcObject = null;
+
+            document.getElementById('startScreen').classList.remove('hidden');
+            document.getElementById('btnStop').classList.add('hidden');
+            document.getElementById('btnMute').classList.add('hidden');
+            document.getElementById('btnFlip').classList.add('hidden');
+            document.getElementById('statusOverlay').style.display = 'none';
+
+            document.getElementById('btnInit').textContent = 'START CAMERA';
+            document.getElementById('btnInit').disabled = false;
+
+            ctxOverlay.clearRect(0, 0, canvasOverlay.width, canvasOverlay.height);
+            speechSynth.cancel();
+        }
+
+        // ===== FLIP CAMERA =====
+        async function flipCamera() {
+            if (!isRunning) return;
+
+            const btn = document.getElementById('btnFlip');
+            btn.textContent = 'SWITCHING...';
+            btn.disabled = true;
+
+            // Switch camera direction
+            useFrontCamera = !useFrontCamera;
+
+            // Stop current stream
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+
+            try {
+                const facingMode = useFrontCamera ? 'user' : 'environment';
+
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { exact: facingMode },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                    },
+                    audio: false,
+                });
+
+                video.srcObject = stream;
+
+                // Mirror front camera, normal for rear
+                if (useFrontCamera) {
+                    video.classList.remove('rear');
+                } else {
+                    video.classList.add('rear');
+                }
+
+                await new Promise((resolve) => {
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        resolve();
+                    };
+                });
+
+                // Update canvas size for new camera
+                const vw = video.videoWidth;
+                const vh = video.videoHeight;
+                canvasOverlay.width = vw;
+                canvasOverlay.height = vh;
+                captureCanvas.width = vw;
+                captureCanvas.height = vh;
+
+                console.log(`Flipped to ${facingMode}: ${vw}x${vh}`);
+
+            } catch (err) {
+                console.error('Flip error:', err);
+                // Revert if failed
+                useFrontCamera = !useFrontCamera;
+
+                try {
+                    // Try without exact constraint (some devices dont support)
+                    const facingMode = useFrontCamera ? 'user' : 'environment';
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: { ideal: facingMode },
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                        },
+                        audio: false,
+                    });
+                    video.srcObject = stream;
+                    await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
+                } catch (e2) {
+                    console.error('Retry flip failed:', e2);
+                    alert('Camera flip failed. This device may have only one camera.');
+                }
+            }
+
+            btn.textContent = 'FLIP CAM';
+            btn.disabled = false;
+        }
+
+        // ===== TOGGLE MUTE =====
+        function toggleMute() {
+            isMuted = !isMuted;
+            const btn = document.getElementById('btnMute');
+            if (isMuted) {
+                btn.textContent = 'UNMUTE';
+                btn.className = 'btn btn-muted';
+                speechSynth.cancel();
+            } else {
+                btn.textContent = 'MUTE';
+                btn.className = 'btn btn-mute';
+            }
+        }
+
+        // ===== SEND FRAME TO SERVER =====
+        function sendFrame() {
+            if (!isRunning || !socket || !socket.connected) return;
+            if (!video || video.readyState < 2) return;
+
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+
+            if (!vw || !vh) return;
+
+            // Match capture canvas to actual video size
+            if (captureCanvas.width !== vw || captureCanvas.height !== vh) {
+                captureCanvas.width = vw;
+                captureCanvas.height = vh;
+            }
+
+            // For front camera, flip horizontally before sending
+            // so server detects correct left/right zones
+            if (useFrontCamera) {
+                ctxCapture.save();
+                ctxCapture.scale(-1, 1);
+                ctxCapture.drawImage(video, -vw, 0, vw, vh);
+                ctxCapture.restore();
+            } else {
+                ctxCapture.drawImage(video, 0, 0, vw, vh);
+            }
+
+            // JPEG quality 0.8 — good balance of quality vs speed
+            const dataURL = captureCanvas.toDataURL('image/jpeg', 0.8);
+            socket.emit('frame', { image: dataURL });
+        }
+
+        // ===== HANDLE DETECTION RESULT =====
+        function handleResult(data) {
+            // Update stats
+            document.getElementById('fpsDisplay').textContent = data.fps || '--';
+            document.getElementById('objDisplay').textContent = data.num_objects || 0;
+            document.getElementById('latencyBadge').textContent = (data.inference_ms || 0) + ' ms';
+            document.getElementById('msDisplay').textContent = (data.inference_ms || 0) + ' ms';
+
+            // Draw detections
+            drawDetections(data.detections, data.frame_width, data.frame_height);
+
+            // Update direction
+            updateDirection(data.direction);
+
+            // Update scene
+            document.getElementById('sceneBar').textContent = data.scene || '';
+
+            // Speak alert
+            if (data.alert && !isMuted) {
+                speakAlert(data.alert);
+            }
+        }
+
+        // ===== DRAW BOUNDING BOXES =====
+        function drawDetections(detections, frameW, frameH) {
+            const w = canvasOverlay.width;
+            const h = canvasOverlay.height;
+
+            const scaleX = w / (frameW || video.videoWidth || 640);
+            const scaleY = h / (frameH || video.videoHeight || 480);
+
+            ctxOverlay.clearRect(0, 0, w, h);
+
+            // Zone lines
+            const z1 = w * 0.33;
+            const z2 = w * 0.66;
+            ctxOverlay.strokeStyle = 'rgba(0,229,255,0.35)';
+            ctxOverlay.lineWidth = 1.5;
+            ctxOverlay.setLineDash([8, 6]);
+            ctxOverlay.beginPath();
+            ctxOverlay.moveTo(z1, 0); ctxOverlay.lineTo(z1, h);
+            ctxOverlay.moveTo(z2, 0); ctxOverlay.lineTo(z2, h);
+            ctxOverlay.stroke();
+            ctxOverlay.setLineDash([]);
+
+            // Zone labels
+            ctxOverlay.font = '11px JetBrains Mono, monospace';
+            ctxOverlay.fillStyle = 'rgba(0,229,255,0.6)';
+            ctxOverlay.fillText('LEFT', 8, 18);
+            ctxOverlay.fillText('CENTER', z1 + 8, 18);
+            ctxOverlay.fillText('RIGHT', z2 + 8, 18);
+
+            if (!detections || detections.length === 0) return;
+
+            detections.forEach(det => {
+                const [x1, y1, x2, y2] = det.bbox;
+
+                const bx1 = x1 * scaleX;
+                const by1 = y1 * scaleY;
+                const bw = (x2 - x1) * scaleX;
+                const bh = (y2 - y1) * scaleY;
+                const bx2 = bx1 + bw;
+                const by2 = by1 + bh;
+
+                let color, bgColor;
+                switch (det.risk_level) {
+                    case 'high':
+                        color = '#ff1744'; bgColor = 'rgba(255,23,68,0.15)'; break;
+                    case 'medium':
+                        color = '#ff9100'; bgColor = 'rgba(255,145,0,0.15)'; break;
+                    default:
+                        color = '#00e676'; bgColor = 'rgba(0,230,118,0.15)';
+                }
+
+                // Fill
+                ctxOverlay.fillStyle = bgColor;
+                ctxOverlay.fillRect(bx1, by1, bw, bh);
+
+                // Border
+                ctxOverlay.strokeStyle = color;
+                ctxOverlay.lineWidth = 2;
+                ctxOverlay.strokeRect(bx1, by1, bw, bh);
+
+                // Corner accents
+                const cl = Math.min(14, bw * 0.2, bh * 0.2);
+                ctxOverlay.strokeStyle = color;
+                ctxOverlay.lineWidth = 3;
+
+                // Top-left
+                ctxOverlay.beginPath();
+                ctxOverlay.moveTo(bx1, by1 + cl);
+                ctxOverlay.lineTo(bx1, by1);
+                ctxOverlay.lineTo(bx1 + cl, by1);
+                ctxOverlay.stroke();
+
+                // Top-right
+                ctxOverlay.beginPath();
+                ctxOverlay.moveTo(bx2 - cl, by1);
+                ctxOverlay.lineTo(bx2, by1);
+                ctxOverlay.lineTo(bx2, by1 + cl);
+                ctxOverlay.stroke();
+
+                // Bottom-left
+                ctxOverlay.beginPath();
+                ctxOverlay.moveTo(bx1, by2 - cl);
+                ctxOverlay.lineTo(bx1, by2);
+                ctxOverlay.lineTo(bx1 + cl, by2);
+                ctxOverlay.stroke();
+
+                // Bottom-right
+                ctxOverlay.beginPath();
+                ctxOverlay.moveTo(bx2 - cl, by2);
+                ctxOverlay.lineTo(bx2, by2);
+                ctxOverlay.lineTo(bx2, by2 - cl);
+                ctxOverlay.stroke();
+
+                // Label
+                const label = det.class_name + ' ' + Math.round(det.confidence * 100) + '%';
+                ctxOverlay.font = 'bold 12px Outfit, sans-serif';
+                const tw = ctxOverlay.measureText(label).width;
+
+                ctxOverlay.fillStyle = color;
+                ctxOverlay.fillRect(bx1, by1 - 20, tw + 10, 20);
+
+                ctxOverlay.fillStyle = '#fff';
+                ctxOverlay.fillText(label, bx1 + 5, by1 - 6);
+
+                // Risk + proximity
+                ctxOverlay.font = '10px JetBrains Mono, monospace';
+                ctxOverlay.fillStyle = color;
+                ctxOverlay.fillText(
+                    det.risk_level.toUpperCase() + ' | ' + det.proximity,
+                    bx1, by2 + 14
+                );
+            });
+        }
+
+        // ===== UPDATE DIRECTION =====
+        function updateDirection(dir) {
+            const banner = document.getElementById('directionBanner');
+            banner.textContent = (dir || '--').toUpperCase();
+            banner.className = 'direction-banner';
+
+            if (dir === 'stop') {
+                banner.classList.add('danger');
+            } else if (dir === 'path clear') {
+                banner.classList.add('clear');
+            } else {
+                banner.classList.add('warning');
+            }
+        }
+
+        // ===== TEXT TO SPEECH =====
+        function speakAlert(message) {
+            if (!speechSynth || isMuted) return;
+
+            const now = Date.now();
+            if (now - lastSpokenTime < 1000) return;
+
+            speechSynth.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(message);
+            utterance.rate = 1.1;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+            utterance.lang = 'en-US';
+
+            speechSynth.speak(utterance);
+            lastSpokenTime = now;
+        }
+
+        // ===== RESIZE HANDLER =====
+        window.addEventListener('resize', () => {
+            if (video && video.videoWidth > 0) {
+                canvasOverlay.width = video.videoWidth;
+                canvasOverlay.height = video.videoHeight;
+            }
+        });
+
+        // ===== START =====
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

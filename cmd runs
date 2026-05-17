@@ -1,0 +1,53 @@
+# COCO model — 36+ objects, no training needed
+python main.py
+
+# Custom trained model (outdoor dataset)
+python main.py --model runs/detect/runs/train/navigation_model/weights/best.pt
+
+# DUAL mode — COCO + Custom (maximum detection)
+python main.py --dual --model runs/detect/runs/train/navigation_model/weights/best.pt
+
+# Combined model (outdoor + indoor dataset)
+python main.py --model runs/train/combined_model/weights/best.pt
+
+# DUAL + Combined model (maximum everything)
+python main.py --dual --model runs/train/combined_model/weights/best.pt
+
+# Exported model (after running export_models.py)
+python main.py --model models/navigation_model.pt
+
+# ONNX model (faster on CPU, no GPU needed)
+python main.py --model models/navigation_model.onnx
+
+# DUAL + Exported model
+python main.py --dual --model models/navigation_model.pt
+
+
+
+
+# COCO model — open http://localhost:5000
+python run_web.py
+
+# Custom trained model
+python run_web.py --model runs/detect/runs/train/navigation_model/weights/best.pt
+
+# DUAL mode (maximum detection)
+python run_web.py --dual --model runs/detect/runs/train/navigation_model/weights/best.pt
+
+# Combined model (outdoor + indoor)
+python run_web.py --model runs/train/combined_model/weights/best.pt
+
+# DUAL + Combined (maximum everything)
+python run_web.py --dual --model runs/train/combined_model/weights/best.pt
+
+# Exported model
+python run_web.py --model models/navigation_model.pt
+
+# ONNX model
+python run_web.py --model models/navigation_model.onnx
+
+# Custom port (if 5000 busy)
+python run_web.py --port 8080
+
+# Custom port + DUAL + Combined
+python run_web.py --port 8080 --dual --model runs/train/combined_model/weights/best.pt
