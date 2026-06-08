@@ -1,7 +1,7 @@
 # VisionAI - Assistive Navigation System
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![YOLOv8](https://img.shields.io/badge/YOLO-v8-green.svg)](https://github.com/ultralytics/ultralytics)
+[![YOLO26](https://img.shields.io/badge/YOLO-26-green.svg)](https://github.com/ultralytics/ultralytics)
 [![Flask](https://img.shields.io/badge/Flask-Web%20Server-red.svg)](https://flask.palletsprojects.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -10,7 +10,7 @@
 ---
 
 > [!WARNING]
-> **Deployment & Accuracy Note:** This project must be run using its local Python backend (`run_web.py` or `main.py`). Do not deploy it as a purely static website (e.g., via GitHub Pages or Vercel). Static deployments force the app to use a lightweight client-side TensorFlow.js fallback model, which results in **poor accuracy and bounding box errors**. The high accuracy and custom object detection are only available when the backend Python server is running the custom YOLOv8 model.
+> **Deployment & Accuracy Note:** This project must be run using its local Python backend (`run_web.py` or `main.py`). Do not deploy it as a purely static website (e.g., via GitHub Pages or Vercel). Static deployments force the app to use a lightweight client-side TensorFlow.js fallback model, which results in **poor accuracy and bounding box errors**. The high accuracy and custom object detection are only available when the backend Python server is running the custom YOLO26 model.
 
 ## 🌟 Key Features
 
