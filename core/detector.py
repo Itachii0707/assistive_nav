@@ -4,11 +4,12 @@ detector.py — YOLO26 detection wrapper with maximum accuracy settings.
 
 import numpy as np
 import platform
+import cv2
 
 from core.config import (
     CONFIDENCE_THRESHOLD, NAVIGATION_CLASSES_COCO,
     YOLO_INPUT_SIZE, PREFERRED_GPU_MODEL,
-    USE_TTA, INFERENCE_SIZE
+    USE_TTA, INFERENCE_SIZE, CLASS_CONFIDENCE_THRESHOLDS
 )
 
 
@@ -165,6 +166,12 @@ class Detector:
                     conf     = float(box.conf[0].cpu().numpy())
                     cls_id   = int(box.cls[0].cpu().numpy())
                     cls_name = str(results[0].names.get(cls_id, f"class_{cls_id}"))
+                    
+                    # Class-specific confidence threshold check
+                    threshold = CLASS_CONFIDENCE_THRESHOLDS.get(cls_name.lower(), CONFIDENCE_THRESHOLD)
+                    if conf < threshold:
+                        continue
+
                     bbox_area  = (x2 - x1) * (y2 - y1)
                     area_ratio = float(bbox_area / frame_area) if frame_area > 0 else 0.0
                     cx = int((x1 + x2) // 2)
@@ -228,10 +235,21 @@ class Detector:
 
         return merged
 
-    def detect(self, frame):
+    def detect(self, frame, low_light_mode=False):
         """Run detection with maximum accuracy on frame."""
         if frame is None:
             return []
+
+        if low_light_mode:
+            from core.config import CLAHE_CLIP_LIMIT, CLAHE_GRID_SIZE
+            try:
+                # Apply CLAHE on the Y (luminance) channel in YUV space
+                yuv = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV)
+                clahe = cv2.createCLAHE(clipLimit=CLAHE_CLIP_LIMIT, tileGridSize=CLAHE_GRID_SIZE)
+                yuv[:, :, 0] = clahe.apply(yuv[:, :, 0])
+                frame = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR)
+            except Exception as e:
+                print(f"[DETECTOR] CLAHE preprocessing failed: {e}")
 
         frame_h, frame_w = frame.shape[:2]
         frame_area       = frame_h * frame_w

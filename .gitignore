@@ -12,5 +12,7 @@ datasets/
 cmd runs
 detection_log.json
 download_*.py
+convert_to_yolo.py
+merge_all_datasets.py
 test_detection.py
 verify_dataset.py

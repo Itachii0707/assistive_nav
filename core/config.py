@@ -222,3 +222,79 @@ COMBINED_DATASET = "datasets/combined_dataset"
 MEGA_DATASET = "datasets/mega_dataset"
 EXTRA_DATASETS_DIR = "datasets/extra"
 
+# ============================================================
+# DISTANCE & LOW-LIGHT ENHANCEMENT SETTINGS
+# ============================================================
+
+# Assumed focal length of camera in pixels (standard for 640x480 webcam)
+FOCAL_LENGTH_PX = 600.0
+
+# Typical physical heights (in meters) of standard classes for distance estimation
+AVERAGE_CLASS_HEIGHTS = {
+    "person": 1.70,
+    "bicycle": 1.00,
+    "car": 1.50,
+    "motorcycle": 1.00,
+    "bus": 3.00,
+    "truck": 2.80,
+    "traffic light": 0.80,
+    "stop sign": 0.75,
+    "bench": 0.80,
+    "cat": 0.25,
+    "dog": 0.45,
+    "backpack": 0.45,
+    "umbrella": 0.80,
+    "handbag": 0.30,
+    "suitcase": 0.60,
+    "bottle": 0.25,
+    "cup": 0.12,
+    "chair": 0.80,
+    "couch": 0.85,
+    "dining table": 0.75,
+    "toilet": 0.50,
+    "laptop": 0.25,
+    "cell phone": 0.16,
+    "potted plant": 0.50,
+    "pothole": 0.40,
+    "door": 2.00,
+    "uncovered manhole": 0.60,
+    "traffic signs": 0.60,
+}
+
+# CLAHE settings for low-light mode
+CLAHE_CLIP_LIMIT = 3.0
+CLAHE_GRID_SIZE = (8, 8)
+
+# Class-specific confidence thresholds for targeted accuracy filtering
+CLASS_CONFIDENCE_THRESHOLDS = {
+    "person": 0.20,
+    "bicycle": 0.20,
+    "car": 0.22,
+    "motorcycle": 0.20,
+    "bus": 0.25,
+    "truck": 0.25,
+    "traffic light": 0.18,
+    "stop sign": 0.15,
+    "bench": 0.22,
+    "cat": 0.25,
+    "dog": 0.25,
+    "backpack": 0.25,
+    "umbrella": 0.25,
+    "handbag": 0.35,
+    "suitcase": 0.25,
+    "bottle": 0.35,
+    "cup": 0.35,
+    "chair": 0.22,
+    "couch": 0.22,
+    "dining table": 0.25,
+    "toilet": 0.25,
+    "laptop": 0.35,
+    "cell phone": 0.30,
+    "potted plant": 0.30,
+    "pothole": 0.15,
+    "door": 0.20,
+    "uncovered manhole": 0.15,
+}
+
+
+

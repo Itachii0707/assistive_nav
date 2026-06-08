@@ -38,6 +38,7 @@ from core.alert_manager import AlertManager
 from core.scene_describer import describe_scene, generate_alert
 from evaluation.benchmark import Benchmark
 from evaluation.logger import DetectionLogger
+from core.stabilizer import DetectionsStabilizer
 
 
 class NavigationSystem:
@@ -64,6 +65,7 @@ class NavigationSystem:
         self.alert_mgr = AlertManager(tts_engine=self.tts)
         self.bench = Benchmark()
         self.logger = DetectionLogger()
+        self.stabilizer = DetectionsStabilizer()
 
         self._running = False
         self.latest_detections = []
@@ -122,8 +124,9 @@ class NavigationSystem:
                     gc.collect()
 
     def _smooth(self, detections):
-        self.prev_detections = detections
-        return detections
+        stabilized = self.stabilizer.update(detections)
+        self.prev_detections = stabilized
+        return stabilized
 
     def _draw_overlay(self, frame, detections, direction, scene):
         h, w = frame.shape[:2]
@@ -152,7 +155,7 @@ class NavigationSystem:
             cv2.putText(frame, label, (x1, y1 - 5),
                         cv2.FONT_HERSHEY_SIMPLEX, FONT_SCALE, (255, 255, 255), FONT_THICKNESS)
 
-            info = f"{risk.upper()} | {det.get('proximity', '')}"
+            info = f"{risk.upper()} | {det.get('distance_str', '')} ({det.get('proximity', '')})"
             cv2.putText(frame, info, (x1, y2 + 18),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
 

@@ -44,6 +44,8 @@ detector = None
 frame_count = 0
 last_alert_time = 0
 last_alert_text = ""
+stabilizers = {}
+
 
 
 def to_python(obj):
@@ -99,6 +101,7 @@ def handle_connect():
 @socketio.on('disconnect')
 def handle_disconnect():
     print(f"[WEB] Client disconnected: {request.sid}")
+    stabilizers.pop(request.sid, None)
 
 
 @socketio.on('frame')
@@ -114,6 +117,9 @@ def handle_frame(data):
     try:
         # Decode base64 JPEG from browser
         img_data = data.get('image', '')
+        low_light = data.get('low_light', False)
+        pitch = float(data.get('pitch', 0.0))
+        send_time = data.get('send_time')
         if ',' in img_data:
             img_data = img_data.split(',')[1]
 
@@ -124,14 +130,21 @@ def handle_frame(data):
         if frame is None:
             return
 
-        # Run detection
-        detections = detector.detect(frame)
+        # Run detection with optional low-light preprocessing
+        detections = detector.detect(frame, low_light_mode=low_light)
 
         # Enrich detections
         frame_h, frame_w = frame.shape[:2]
         detections = assign_zones(detections, frame_w)
-        detections = add_proximity(detections)
+        detections = add_proximity(detections, pitch_deg=pitch)
         detections = add_risk_levels(detections)
+
+        # Apply temporal stabilizer to smooth boxes and mitigate flickering
+        sid = request.sid
+        if sid not in stabilizers:
+            from core.stabilizer import DetectionsStabilizer
+            stabilizers[sid] = DetectionsStabilizer()
+        detections = stabilizers[sid].update(detections)
 
         # Decision
         direction = suggest_direction(detections)
@@ -165,6 +178,8 @@ def handle_frame(data):
                 'risk_level': str(det.get('risk_level', 'low')),
                 'proximity': str(det.get('proximity', '')),
                 'area_ratio': float(round(det.get('area_ratio', 0), 4)),
+                'distance_m': float(det.get('distance_m', 0.0)),
+                'distance_str': str(det.get('distance_str', '')),
             })
 
         result = {
@@ -177,6 +192,7 @@ def handle_frame(data):
             'num_objects': int(len(detections)),
             'frame_width': int(frame_w),
             'frame_height': int(frame_h),
+            'send_time': send_time,
         }
 
         emit('result', result)

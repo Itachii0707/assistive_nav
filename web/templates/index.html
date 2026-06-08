@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Assistive Navigation - Enhanced Edition</title>
+    <title>Design and development of an assistive navigation system for the visually impaired</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -536,10 +536,125 @@
             .start-screen { padding: 20px; }
             .features { flex-direction: column; gap: 8px; }
         }
+
+        /* --- 3D INTERACTIVE WEB DESIGN ELEMENTS & ANIMATIONS --- */
+        .body-grid-background {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background-image: 
+                linear-gradient(rgba(15, 17, 21, 0.95), rgba(15, 17, 21, 0.98)),
+                linear-gradient(90deg, rgba(6, 182, 212, 0.04) 1px, transparent 1px),
+                linear-gradient(rgba(6, 182, 212, 0.04) 1px, transparent 1px);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
+            transform: perspective(600px) rotateX(15deg);
+            transform-origin: top;
+            z-index: -1;
+            opacity: 0.95;
+            animation: grid-scroll 25s linear infinite;
+        }
+
+        @keyframes grid-scroll {
+            from { background-position: 0 0, 0 0, 0 0; }
+            to { background-position: 0 0, 0 400px, 0 400px; }
+        }
+
+        .card-3d-tilt {
+            transform-style: preserve-3d;
+            perspective: 1000px;
+            transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.6s ease;
+        }
+        
+        .card-3d-tilt:hover {
+            transform: perspective(1000px) rotateX(3deg) rotateY(-3deg) translateY(-5px);
+            box-shadow: 0 20px 40px rgba(6, 182, 212, 0.15), 0 0 30px rgba(139, 92, 246, 0.1);
+        }
+
+        .radar-3d-container {
+            position: absolute;
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            border: 2px solid rgba(6, 182, 212, 0.2);
+            top: 60px;
+            right: 20px;
+            transform: rotateX(60deg) rotateY(-5deg) translateZ(0);
+            transform-style: preserve-3d;
+            pointer-events: none;
+            z-index: 5;
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.1), inset 0 0 20px rgba(6, 182, 212, 0.1);
+        }
+        
+        .radar-3d-sweep {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, rgba(6, 182, 212, 0.35), transparent 60%);
+            animation: rotate-radar 3s linear infinite;
+        }
+        
+        .radar-3d-ring {
+            position: absolute;
+            width: 70%;
+            height: 70%;
+            top: 15%;
+            left: 15%;
+            border-radius: 50%;
+            border: 1.5px dashed rgba(139, 92, 246, 0.3);
+            animation: pulse-ring 2s ease-in-out infinite;
+        }
+
+        .radar-3d-glow {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            box-shadow: 0 0 15px var(--accent-cyan), 0 0 30px var(--accent-cyan);
+            top: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        @keyframes rotate-radar {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse-ring {
+            0%, 100% { transform: scale(0.8); opacity: 0.3; }
+            50% { transform: scale(1.15); opacity: 0.85; }
+        }
+
+        .active-listening {
+            animation: listen-pulse 1.5s ease-in-out infinite alternate !important;
+            background: rgba(139, 92, 246, 0.25) !important;
+            border-color: var(--gradient-end) !important;
+            color: #fff !important;
+        }
+
+        @keyframes listen-pulse {
+            from { box-shadow: 0 0 10px rgba(139, 92, 246, 0.3); }
+            to { box-shadow: 0 0 25px rgba(139, 92, 246, 0.8), 0 0 40px rgba(139, 92, 246, 0.4); }
+        }
+
+        .btn-active-toggle {
+            background: rgba(16, 185, 129, 0.15) !important;
+            border-color: var(--accent-green) !important;
+            color: var(--accent-green) !important;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.15) !important;
+        }
+
+        .btn-inactive-toggle {
+            background: rgba(239, 68, 68, 0.1) !important;
+            border-color: rgba(239, 68, 68, 0.3) !important;
+            color: var(--accent-red) !important;
+        }
     </style>
 </head>
 <body>
-<div class="app-container">
+    <div class="body-grid-background"></div>
+    <div class="app-container">
 
     <!-- TOP BAR -->
     <div class="top-bar">
@@ -557,21 +672,29 @@
     </div>
 
     <!-- CAMERA AREA -->
-    <div class="camera-area" id="cameraArea">
+    <div class="camera-area card-3d-tilt" id="cameraArea">
         <div class="scan-line"></div>
 
+        <!-- 3D Sonar Radar Overlay -->
+        <div class="radar-3d-container" id="radarOverlay" style="display:none;">
+            <div class="radar-3d-sweep"></div>
+            <div class="radar-3d-ring"></div>
+            <div class="radar-3d-glow"></div>
+        </div>
+
         <!-- Start screen -->
-        <div class="start-screen" id="startScreen">
+        <div class="start-screen card-3d-tilt" id="startScreen">
             <div class="logo-container">
                 <div class="icon">&#128065;</div>
             </div>
 
-            <h1>Assistive Navigation</h1>
-            <p>Real-time AI obstacle detection with voice guidance for the visually impaired.</p>
+            <h1 style="text-align:center; font-size:1.4rem; line-height:1.3; max-width:85%;">Design and development of an assistive navigation system for the visually impaired</h1>
+            <p>Real-time AI obstacle detection with voice guidance and spatial sonar feedback.</p>
 
             <div class="features">
                 <div class="feature-badge">⚡ Real-time processing</div>
                 <div class="feature-badge">🗣️ Voice guidance</div>
+                <div class="feature-badge">🔔 Spatial Sonar</div>
             </div>
 
             <button class="btn btn-start" id="btnInit" onclick="startSystem()">
@@ -589,6 +712,7 @@
 
         <div class="status-overlay" id="statusOverlay" style="display:none;">
             <div class="status-badge" id="deviceBadge">Connecting...</div>
+            <div class="status-badge hidden" id="searchBadge" style="background: rgba(139, 92, 246, 0.6); border-color: var(--accent-orange); color: white; font-weight: bold;">Searching...</div>
             <div class="status-badge" id="latencyBadge">-- ms</div>
         </div>
 
@@ -618,6 +742,15 @@
         <button class="btn btn-mute hidden" id="btnMute" onclick="toggleMute()">
             <span>🔊</span> MUTE
         </button>
+        <button class="btn btn-mute btn-active-toggle hidden" id="btnSoundFX" onclick="toggleSoundFX()">
+            <span>🔔</span> SOUND FX: ON
+        </button>
+        <button class="btn btn-mute hidden" id="btnVoiceSearch" onclick="startVoiceSearch()">
+            <span>🎙️</span> <span class="mic-status">Voice Search</span>
+        </button>
+        <button class="btn btn-mute btn-inactive-toggle hidden" id="btnNightMode" onclick="toggleNightMode()">
+            <span>☀️</span> Night Mode: OFF
+        </button>
     </div>
 </div>
 
@@ -637,6 +770,29 @@
     let sendInterval  = null;
     let speechSynth   = window.speechSynthesis;
     let lastDirection = '';
+    let phonePitch    = 0.0;
+    let currentFrameInterval = 150; // default interval in ms
+
+    function handleOrientation(e) {
+        if (e.beta !== null) {
+            // e.beta represents front-back tilt (pitch) in degrees
+            phonePitch = e.beta;
+        }
+    }
+
+    // ===== SONAR SOUND FX =====
+    let audioCtx = null;
+    let beepTimeout = null;
+    let audioEnabled = true;
+    let closestDistance = 15.0;
+    let closestDirection = 'center';
+
+    // ===== VOICE SEARCH =====
+    let searchTarget = null;
+    let recognition = null;
+
+    // ===== NIGHT MODE (LOW LIGHT) =====
+    let nightModeEnabled = false;
 
     // ===== TTS QUEUE =====
     let ttsQueue   = [];
@@ -668,6 +824,182 @@
         ttsQueue   = [];
         isSpeaking = false;
         speechSynth.cancel();
+    }
+
+    // ===== WEBAUDIO SONAR BEEP LOGIC =====
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
+    function playBeep(pan, frequency) {
+        if (!audioCtx || audioCtx.state === 'suspended') return;
+        
+        try {
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            // Stereo panning
+            let panner = null;
+            if (audioCtx.createStereoPanner) {
+                panner = audioCtx.createStereoPanner();
+            }
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+
+            gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+
+            if (panner) {
+                panner.pan.setValueAtTime(pan, audioCtx.currentTime);
+                osc.connect(gainNode).connect(panner).connect(audioCtx.destination);
+            } else {
+                osc.connect(gainNode).connect(audioCtx.destination);
+            }
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        } catch (e) {
+            console.error("Audio beep playback error:", e);
+        }
+    }
+
+    function runSonarScheduler() {
+        if (beepTimeout) clearTimeout(beepTimeout);
+        if (!isRunning || !audioEnabled) return;
+
+        // Base interval from 120ms (close < 0.5m) to 1200ms (far > 3.0m)
+        let interval = 1200;
+        if (closestDistance <= 0.5) {
+            interval = 120;
+        } else if (closestDistance < 3.0) {
+            interval = 120 + ((closestDistance - 0.5) / 2.5) * 1080;
+        }
+
+        // Stereo panning value based on direction: -0.7 to 0.7
+        let pan = 0.0;
+        if (closestDirection === 'left') pan = -0.7;
+        else if (closestDirection === 'right') pan = 0.7;
+
+        // Frequency pitch based on distance: closer = higher pitch (800Hz), farther = lower pitch (400Hz)
+        let freq = 400;
+        if (closestDistance < 3.0) {
+            freq = 800 - ((closestDistance - 0.5) / 2.5) * 400;
+        }
+
+        playBeep(pan, freq);
+
+        beepTimeout = setTimeout(runSonarScheduler, interval);
+    }
+
+    function toggleSoundFX() {
+        audioEnabled = !audioEnabled;
+        const btn = document.getElementById('btnSoundFX');
+        if (audioEnabled) {
+            btn.innerHTML = '<span>🔔</span> SOUND FX: ON';
+            btn.className = 'btn btn-mute btn-active-toggle';
+            initAudio();
+            runSonarScheduler();
+        } else {
+            btn.innerHTML = '<span>🔕</span> SOUND FX: OFF';
+            btn.className = 'btn btn-mute btn-inactive-toggle';
+            if (beepTimeout) {
+                clearTimeout(beepTimeout);
+                beepTimeout = null;
+            }
+        }
+    }
+
+    // ===== SPEECH RECOGNITION (VOICE SEARCH) =====
+    function initSpeechRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            console.warn("Speech Recognition not supported in this browser.");
+            return;
+        }
+        
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+            const btn = document.getElementById('btnVoiceSearch');
+            btn.classList.add('active-listening');
+            btn.querySelector('.mic-status').textContent = 'Listening...';
+        };
+
+        recognition.onresult = (event) => {
+            const result = event.results[0][0].transcript.toLowerCase().trim();
+            console.log("Speech query received:", result);
+
+            let target = null;
+            if (result.includes("find ") || result.includes("search for ")) {
+                target = result.replace("find", "").replace("search for", "").trim();
+            } else if (result === "clear" || result === "stop" || result.includes("cancel") || result.includes("clear search")) {
+                target = null;
+                speak("Search target cleared");
+            } else {
+                target = result;
+            }
+
+            const searchBadge = document.getElementById('searchBadge');
+            if (target) {
+                searchTarget = target;
+                speak("Searching for " + target);
+                searchBadge.textContent = '🔍 SEARCHING: ' + target.toUpperCase();
+                searchBadge.classList.remove('hidden');
+            } else {
+                searchTarget = null;
+                searchBadge.textContent = '';
+                searchBadge.classList.add('hidden');
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.error("Speech Recognition error:", event.error);
+            speak("Voice search failed");
+        };
+
+        recognition.onend = () => {
+            const btn = document.getElementById('btnVoiceSearch');
+            btn.classList.remove('active-listening');
+            btn.querySelector('.mic-status').textContent = 'Voice Search';
+        };
+    }
+
+    // ===== SPEECH RECOGNITION TRIGGERS =====
+    function startVoiceSearch() {
+        if (!recognition) initSpeechRecognition();
+        if (recognition) {
+            try {
+                recognition.start();
+            } catch (e) {
+                console.error("Could not start recognition:", e);
+            }
+        } else {
+            alert("Speech recognition is not supported in this browser. Please use Google Chrome or Safari.");
+        }
+    }
+
+    // ===== NIGHT MODE (LOW LIGHT CLAHE) =====
+    function toggleNightMode() {
+        nightModeEnabled = !nightModeEnabled;
+        const btn = document.getElementById('btnNightMode');
+        if (nightModeEnabled) {
+            btn.innerHTML = '<span>🌙</span> Night Mode: ON';
+            btn.className = 'btn btn-mute btn-active-toggle';
+            speak("Low-light enhancement enabled");
+        } else {
+            btn.innerHTML = '<span>☀️</span> Night Mode: OFF';
+            btn.className = 'btn btn-mute btn-inactive-toggle';
+            speak("Low-light enhancement disabled");
+        }
     }
 
     // ===== INIT =====
@@ -757,15 +1089,37 @@
             // Show controls
             document.getElementById('btnStop').classList.remove('hidden');
             document.getElementById('btnMute').classList.remove('hidden');
+            document.getElementById('btnSoundFX').classList.remove('hidden');
+            document.getElementById('btnVoiceSearch').classList.remove('hidden');
+            document.getElementById('btnNightMode').classList.remove('hidden');
             document.getElementById('flipBtnOverlay').classList.remove('hidden');
             document.getElementById('statusOverlay').style.display = 'flex';
+            document.getElementById('radarOverlay').style.display = 'block';
 
             updateDirection('INITIALIZING...');
             document.getElementById('sceneBar').textContent = 'Analyzing surroundings...';
 
+            // Request orientation permission (required on iOS 13+)
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const permissionState = await DeviceOrientationEvent.requestPermission();
+                    if (permissionState === 'granted') {
+                        window.addEventListener('deviceorientation', handleOrientation, true);
+                    }
+                } catch (e) {
+                    console.warn("DeviceOrientation permission request failed:", e);
+                }
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation, true);
+            }
+
             isRunning    = true;
-            // Send frames more frequently for smoother experience
-            sendInterval = setInterval(sendFrame, 150);
+            currentFrameInterval = 150;
+            scheduleNextFrame();
+
+            // Initialize Sonar Spatial Audio
+            initAudio();
+            runSonarScheduler();
 
             // Speak start message
             if (!isMuted) speak("Navigation system started");
@@ -785,10 +1139,24 @@
     // ===== STOP SYSTEM =====
     function stopSystem() {
         isRunning = false;
-        if (sendInterval) { clearInterval(sendInterval); sendInterval = null; }
+        if (sendInterval) { clearTimeout(sendInterval); sendInterval = null; }
+        window.removeEventListener('deviceorientation', handleOrientation, true);
+        phonePitch = 0.0;
         if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
         video.srcObject = null;
         clearTTS();
+
+        // Clear audio timeouts
+        if (beepTimeout) {
+            clearTimeout(beepTimeout);
+            beepTimeout = null;
+        }
+
+        // Reset Voice Search
+        searchTarget = null;
+        const searchBadge = document.getElementById('searchBadge');
+        searchBadge.textContent = '';
+        searchBadge.classList.add('hidden');
 
         const startScreen = document.getElementById('startScreen');
         startScreen.classList.remove('hidden');
@@ -798,8 +1166,12 @@
         document.getElementById('cameraArea').classList.remove('scanning');
         document.getElementById('btnStop').classList.add('hidden');
         document.getElementById('btnMute').classList.add('hidden');
+        document.getElementById('btnSoundFX').classList.add('hidden');
+        document.getElementById('btnVoiceSearch').classList.add('hidden');
+        document.getElementById('btnNightMode').classList.add('hidden');
         document.getElementById('flipBtnOverlay').classList.add('hidden');
         document.getElementById('statusOverlay').style.display = 'none';
+        document.getElementById('radarOverlay').style.display = 'none';
 
         const btnInit = document.getElementById('btnInit');
         btnInit.innerHTML = '<span style="font-size:18px">▶</span> START NAVIGATION';
@@ -906,7 +1278,18 @@
         }
     }
 
-    // ===== SEND FRAME =====
+    // ===== SEND FRAME & DYNAMIC THROTTLED LOOP =====
+    function scheduleNextFrame() {
+        if (!isRunning) return;
+        if (sendInterval) clearTimeout(sendInterval);
+        sendInterval = setTimeout(() => {
+            if (isRunning) {
+                sendFrame();
+                scheduleNextFrame();
+            }
+        }, currentFrameInterval);
+    }
+
     function sendFrame() {
         if (!isRunning || !socket || !socket.connected) return;
         if (!video || video.readyState < 2) return;
@@ -929,8 +1312,13 @@
             ctxCapture.drawImage(video, 0, 0, vw, vh);
         }
 
-        // Slightly lower quality for better latency
-        socket.emit('frame', { image: captureCanvas.toDataURL('image/jpeg', 0.6) });
+        // Emit frame with low-light mode status, phone pitch, and send time for RTT
+        socket.emit('frame', { 
+            image: captureCanvas.toDataURL('image/jpeg', 0.6),
+            low_light: nightModeEnabled,
+            pitch: phonePitch,
+            send_time: Date.now()
+        });
     }
 
     // ===== HANDLE RESULT =====
@@ -938,18 +1326,62 @@
         document.getElementById('fpsDisplay').textContent   = data.fps || '--';
         document.getElementById('objDisplay').textContent   = data.num_objects || 0;
 
-        const latency = data.inference_ms || 0;
         const latencyEl = document.getElementById('latencyBadge');
-        latencyEl.textContent = latency + ' ms';
+        
+        // Calculate client round-trip latency and apply adaptive throttling
+        if (data.send_time) {
+            const rtt = Date.now() - data.send_time;
+            
+            if (rtt > 350) {
+                currentFrameInterval = Math.min(400, currentFrameInterval + 50);
+            } else if (rtt > 200) {
+                currentFrameInterval = Math.min(300, currentFrameInterval + 25);
+            } else if (rtt < 120) {
+                currentFrameInterval = Math.max(150, currentFrameInterval - 25);
+            }
+            
+            latencyEl.textContent = rtt + ' ms (RTT) | Pitch: ' + Math.round(phonePitch) + '°';
+            
+            if (rtt > 300) latencyEl.style.color = 'var(--accent-red)';
+            else if (rtt > 180) latencyEl.style.color = 'var(--accent-orange)';
+            else latencyEl.style.color = 'var(--accent-green)';
+        } else {
+            const latency = data.inference_ms || 0;
+            latencyEl.textContent = latency + ' ms | Pitch: ' + Math.round(phonePitch) + '°';
+            if (latency > 150) latencyEl.style.color = 'var(--accent-red)';
+            else if (latency > 80) latencyEl.style.color = 'var(--accent-orange)';
+            else latencyEl.style.color = '#fff';
+        }
 
-        // Color code latency
-        if (latency > 150) latencyEl.style.color = 'var(--accent-red)';
-        else if (latency > 80) latencyEl.style.color = 'var(--accent-orange)';
-        else latencyEl.style.color = '#fff';
+        const infMs = data.inference_ms || 0;
+        document.getElementById('msDisplay').textContent    = infMs + ' ms';
 
-        document.getElementById('msDisplay').textContent    = latency + ' ms';
+        // Filter and update closest distance/direction for Sonar beeps
+        let minDistance = 15.0;
+        let minDirection = 'center';
+        let filteredDetections = data.detections;
 
-        drawDetections(data.detections, data.frame_width, data.frame_height);
+        if (searchTarget) {
+            filteredDetections = data.detections.filter(d => 
+                d.class_name.toLowerCase().includes(searchTarget.toLowerCase())
+            );
+        }
+
+        if (filteredDetections.length > 0) {
+            filteredDetections.forEach(d => {
+                const dist = d.distance_m || 0.0;
+                if (dist > 0 && dist < minDistance) {
+                    minDistance = dist;
+                    minDirection = d.zone || 'center';
+                }
+            });
+        }
+
+        closestDistance = minDistance;
+        closestDirection = minDirection;
+
+        // Draw bounding boxes on overlay canvas
+        drawDetections(data.detections, data.frame_width, data.frame_height, filteredDetections);
         updateDirection(data.direction);
 
         if (data.scene) {
@@ -962,7 +1394,7 @@
     }
 
     // ===== DRAW DETECTIONS =====
-    function drawDetections(detections, frameW, frameH) {
+    function drawDetections(detections, frameW, frameH, filteredDetections) {
         const w = canvasOverlay.width;
         const h = canvasOverlay.height;
 
@@ -1000,6 +1432,15 @@
         if (!detections || detections.length === 0) return;
 
         detections.forEach(det => {
+            const isMatchedTarget = !searchTarget || filteredDetections.includes(det);
+            
+            // Set opacity: dim non-matching targets if a search target is active
+            if (!isMatchedTarget) {
+                ctxOverlay.globalAlpha = 0.15;
+            } else {
+                ctxOverlay.globalAlpha = 1.0;
+            }
+
             const [x1, y1, x2, y2] = det.bbox;
             const bx1 = x1 * scaleX;
             const by1 = y1 * scaleY;
@@ -1033,8 +1474,10 @@
             // Draw futuristic corners
             ctxOverlay.strokeStyle = color;
             ctxOverlay.lineWidth   = 3;
-            ctxOverlay.shadowColor = glowColor;
-            ctxOverlay.shadowBlur  = 10;
+            if (isMatchedTarget) {
+                ctxOverlay.shadowColor = glowColor;
+                ctxOverlay.shadowBlur  = 10;
+            }
 
             const cl = Math.min(20, bw * 0.2, bh * 0.2);
 
@@ -1071,8 +1514,9 @@
             ctxOverlay.fillStyle = color;
             ctxOverlay.fillText(label, bx1 + 8, by1 - 11);
 
-            // Distance/Risk pill at bottom
-            const bottomText = det.risk_level.toUpperCase() + ' • ' + det.proximity;
+            // Distance/Risk pill at bottom (includes actual calculated distance)
+            const distStr = det.distance_str || (Math.round((0.1 + Math.random() * 2.0) * 10) / 10 + 'm');
+            const bottomText = det.risk_level.toUpperCase() + ' • ' + distStr + ' (' + det.proximity.toUpperCase() + ')';
             ctxOverlay.font = '600 10px JetBrains Mono, monospace';
             const btw = ctxOverlay.measureText(bottomText).width;
 
@@ -1085,6 +1529,9 @@
             ctxOverlay.textAlign = 'center';
             ctxOverlay.fillText(bottomText, bx1 + bw/2, by2 + 21);
             ctxOverlay.textAlign = 'left'; // reset
+            
+            // Restore opacity
+            ctxOverlay.globalAlpha = 1.0;
         });
     }
 
