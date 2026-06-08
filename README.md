@@ -1,4 +1,4 @@
-# VisionAI - Assistive Navigation System
+# Vision AI - Design and development of an assistive navigation system for the visually impaired
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![YOLO26](https://img.shields.io/badge/YOLO-26-green.svg)](https://github.com/ultralytics/ultralytics)
@@ -88,11 +88,7 @@ The web server allows you to use your smartphone's camera (or another PC) as the
 1.  **Start the server:**
     ```bash
     # Run with dual model configuration (recommended)
-    # If activated:
     python run_web.py --port 8080 --dual --model runs/detect/runs/train/combined_model_max/weights/best.pt
-    
-    # If not activated (Windows):
-    .venv\Scripts\python.exe run_web.py --port 8080 --dual --model runs/detect/runs/train/combined_model_max/weights/best.pt
     ```
 
 2.  **Access the app:**
