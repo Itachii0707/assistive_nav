@@ -60,6 +60,7 @@ The system operates using a multi-threaded pipeline:
     # macOS/Linux
     source .venv/bin/activate
     ```
+    *(Note: If you get an Execution Policy error on Windows PowerShell, run `Set-ExecutionPolicy Unrestricted -Scope Process` first, or run `.venv\Scripts\python.exe` directly instead of activating).*
 
 3.  **Install dependencies:**
     ```bash
@@ -87,7 +88,11 @@ The web server allows you to use your smartphone's camera (or another PC) as the
 1.  **Start the server:**
     ```bash
     # Run with dual model configuration (recommended)
+    # If activated:
     python run_web.py --port 8080 --dual --model runs/detect/runs/train/combined_model_max/weights/best.pt
+    
+    # If not activated (Windows):
+    .venv\Scripts\python.exe run_web.py --port 8080 --dual --model runs/detect/runs/train/combined_model_max/weights/best.pt
     ```
 
 2.  **Access the app:**
