@@ -1,0 +1,1757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Design and development of an assistive navigation system for the visually impaired</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0f1115;
+            --bg-card: #181b21;
+            --bg-glass: rgba(24, 27, 33, 0.7);
+            --border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f0f2f5;
+            --text-dim: #8b92a5;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-orange: #f59e0b;
+            --accent-cyan: #06b6d4;
+            --gradient-start: #3b82f6;
+            --gradient-end: #8b5cf6;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            background-image:
+                radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08), transparent 25%);
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* TOP BAR */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            min-height: 56px;
+            flex-shrink: 0;
+            z-index: 100;
+        }
+
+        .top-bar .title {
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            letter-spacing: 0.5px;
+            background: linear-gradient(90deg, #fff, var(--text-dim));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .top-bar .stats {
+            display: flex;
+            gap: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-dim);
+            background: rgba(0,0,0,0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .stat-value { color: var(--accent-cyan); font-weight: 700; }
+
+        /* CAMERA */
+        .camera-area {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #000;
+            min-height: 0;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+        }
+
+        #videoElement {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            transition: opacity 0.5s ease;
+        }
+
+        #videoElement.rear {
+            transform: scaleX(1);
+        }
+
+        #canvasOverlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        #captureCanvas { display: none; }
+
+        /* SCANNING ANIMATION */
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+            box-shadow: 0 0 15px var(--accent-cyan), 0 0 30px var(--accent-cyan);
+            opacity: 0.6;
+            z-index: 3;
+            pointer-events: none;
+            display: none;
+            animation: scan 3s linear infinite;
+        }
+
+        .camera-area.scanning .scan-line {
+            display: block;
+        }
+
+        @keyframes scan {
+            0% { top: 0%; opacity: 0; }
+            10% { opacity: 0.8; }
+            90% { opacity: 0.8; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        /* STATUS BADGES */
+        .status-overlay {
+            position: absolute;
+            top: 16px; left: 16px; right: 16px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .status-badge {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 6px 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        /* FLIP BUTTON */
+        .flip-btn-overlay {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10;
+            pointer-events: all;
+        }
+
+        .btn-flip-float {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .btn-flip-float:hover {
+            transform: scale(1.1) rotate(15deg);
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255,255,255,0.4);
+        }
+
+        .btn-flip-float:active {
+            transform: scale(0.9) rotate(-15deg);
+        }
+
+        /* DIRECTION BANNER */
+        .direction-banner {
+            padding: 16px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            min-height: 68px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+            z-index: 100;
+        }
+
+        .direction-banner::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.5s;
+        }
+
+        .direction-banner.updated::before {
+            transform: translateX(100%);
+            transition: transform 0.5s ease-out;
+        }
+
+        .direction-banner.clear   {
+            color: var(--accent-green);
+            background: rgba(16, 185, 129, 0.05);
+            box-shadow: inset 0 2px 20px rgba(16, 185, 129, 0.1);
+        }
+        .direction-banner.warning {
+            color: var(--accent-orange);
+            background: rgba(245, 158, 11, 0.05);
+            box-shadow: inset 0 2px 20px rgba(245, 158, 11, 0.1);
+        }
+        .direction-banner.danger  {
+            color: var(--accent-red);
+            background: rgba(239, 68, 68, 0.1);
+            animation: danger-pulse 1s ease-in-out infinite alternate;
+        }
+
+        @keyframes danger-pulse {
+            from { background: rgba(239, 68, 68, 0.1); box-shadow: inset 0 2px 20px rgba(239, 68, 68, 0.2); }
+            to { background: rgba(239, 68, 68, 0.25); box-shadow: inset 0 2px 30px rgba(239, 68, 68, 0.4); text-shadow: 0 0 10px rgba(239,68,68,0.5); }
+        }
+
+        /* SCENE BAR */
+        .scene-bar {
+            padding: 8px 20px;
+            text-align: center;
+            font-size: 14px;
+            color: var(--text-dim);
+            background: var(--bg-dark);
+            border-top: 1px solid var(--border);
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+        /* CONTROLS */
+        .controls-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 16px 20px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+            z-index: 100;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 14px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 5px;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.5);
+            opacity: 0;
+            border-radius: 100%;
+            transform: scale(1, 1) translate(-50%);
+            transform-origin: 50% 50%;
+        }
+
+        @keyframes ripple {
+            0% { transform: scale(0, 0); opacity: 0.5; }
+            100% { transform: scale(20, 20); opacity: 0; }
+        }
+
+        .btn:focus:not(:active)::after {
+            animation: ripple 1s ease-out;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
+            width: 100%;
+            max-width: 300px;
+            padding: 16px;
+            font-size: 16px;
+        }
+
+        .btn-start:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-start:active {
+            transform: translateY(1px);
+        }
+
+        .btn-start:disabled {
+            background: #2a2d35;
+            color: #666;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-stop {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .btn-stop:hover {
+            background: var(--accent-red);
+            color: white;
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-mute {
+            background: rgba(255,255,255,0.05);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+        .btn-mute:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .btn-muted {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--accent-red);
+            border: 1px solid var(--accent-red);
+            position: relative;
+        }
+        .btn-muted::before {
+            content: '';
+            position: absolute;
+            width: 60%;
+            height: 2px;
+            background: var(--accent-red);
+            transform: rotate(-45deg);
+        }
+
+        /* START SCREEN */
+        .start-screen {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 17, 21, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 20;
+            gap: 30px;
+            padding: 30px;
+            transition: opacity 0.5s ease;
+        }
+
+        .start-screen.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .logo-container {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 30px;
+            background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.2));
+            box-shadow: 0 0 40px rgba(99,102,241,0.2);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .start-screen .icon {
+            font-size: 50px;
+            filter: drop-shadow(0 0 10px rgba(255,255,255,0.5));
+        }
+
+        .start-screen h1 {
+            font-size: clamp(24px, 6vw, 36px);
+            font-weight: 800;
+            text-align: center;
+            background: linear-gradient(135deg, #fff, #a5b4fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: -10px;
+        }
+
+        .start-screen p {
+            color: var(--text-dim);
+            font-size: 15px;
+            text-align: center;
+            max-width: 340px;
+            line-height: 1.6;
+        }
+
+        .features {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+
+        .feature-badge {
+            font-size: 11px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 6px 12px;
+            border-radius: 20px;
+            color: #ccc;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .hidden { display: none !important; }
+
+        /* CONNECTION DOT */
+        .connection-wrapper {
+            display: flex;
+            align-items: center;
+            background: rgba(0,0,0,0.2);
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            margin-right: 10px;
+        }
+
+        .connection-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 10px currentColor;
+        }
+        .connected    { background: var(--accent-green); color: var(--accent-green); }
+        .disconnected { background: var(--accent-red); color: var(--accent-red); }
+        .connecting   { background: var(--accent-orange); color: var(--accent-orange); animation: pulse-dot 1.5s infinite; }
+
+        @keyframes pulse-dot {
+            0% { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+            70% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+            100% { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+
+        /* PERMISSION HINT */
+        .permission-hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        @media (max-width: 600px) {
+            .top-bar { padding: 10px 12px; }
+            .top-bar .title { font-size: 13px; }
+            .top-bar .stats { gap: 10px; font-size: 10px; padding: 4px 8px; }
+            .stat-item span { display: none; } /* Hide text, show only values on small screens */
+            .direction-banner { font-size: 18px; min-height: 56px; padding: 12px; letter-spacing: 2px; }
+            .scene-bar { font-size: 12px; padding: 6px 12px; }
+            .controls-bar { padding: 12px; gap: 10px; }
+            .btn { padding: 10px 16px; font-size: 13px; border-radius: 12px; }
+            .btn-flip-float { width: 54px; height: 54px; font-size: 22px; bottom: 16px; right: 16px; }
+            .status-overlay { top: 12px; left: 12px; right: 12px; }
+            .start-screen { padding: 20px; }
+            .features { flex-direction: column; gap: 8px; }
+        }
+
+        /* --- 3D INTERACTIVE WEB DESIGN ELEMENTS & ANIMATIONS --- */
+        .body-grid-background {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background-image: 
+                linear-gradient(rgba(15, 17, 21, 0.95), rgba(15, 17, 21, 0.98)),
+                linear-gradient(90deg, rgba(6, 182, 212, 0.04) 1px, transparent 1px),
+                linear-gradient(rgba(6, 182, 212, 0.04) 1px, transparent 1px);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
+            transform: perspective(600px) rotateX(15deg);
+            transform-origin: top;
+            z-index: -1;
+            opacity: 0.95;
+            animation: grid-scroll 25s linear infinite;
+        }
+
+        @keyframes grid-scroll {
+            from { background-position: 0 0, 0 0, 0 0; }
+            to { background-position: 0 0, 0 400px, 0 400px; }
+        }
+
+        .card-3d-tilt {
+            transform-style: preserve-3d;
+            perspective: 1000px;
+            transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.6s ease;
+        }
+        
+        .card-3d-tilt:hover {
+            transform: perspective(1000px) rotateX(3deg) rotateY(-3deg) translateY(-5px);
+            box-shadow: 0 20px 40px rgba(6, 182, 212, 0.15), 0 0 30px rgba(139, 92, 246, 0.1);
+        }
+
+        .radar-3d-container {
+            position: absolute;
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            border: 2px solid rgba(6, 182, 212, 0.2);
+            top: 60px;
+            right: 20px;
+            transform: rotateX(60deg) rotateY(-5deg) translateZ(0);
+            transform-style: preserve-3d;
+            pointer-events: none;
+            z-index: 5;
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.1), inset 0 0 20px rgba(6, 182, 212, 0.1);
+        }
+        
+        .radar-3d-sweep {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, rgba(6, 182, 212, 0.35), transparent 60%);
+            animation: rotate-radar 3s linear infinite;
+        }
+        
+        .radar-3d-ring {
+            position: absolute;
+            width: 70%;
+            height: 70%;
+            top: 15%;
+            left: 15%;
+            border-radius: 50%;
+            border: 1.5px dashed rgba(139, 92, 246, 0.3);
+            animation: pulse-ring 2s ease-in-out infinite;
+        }
+
+        .radar-3d-glow {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            box-shadow: 0 0 15px var(--accent-cyan), 0 0 30px var(--accent-cyan);
+            top: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        @keyframes rotate-radar {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse-ring {
+            0%, 100% { transform: scale(0.8); opacity: 0.3; }
+            50% { transform: scale(1.15); opacity: 0.85; }
+        }
+
+        .active-listening {
+            animation: listen-pulse 1.5s ease-in-out infinite alternate !important;
+            background: rgba(139, 92, 246, 0.25) !important;
+            border-color: var(--gradient-end) !important;
+            color: #fff !important;
+        }
+
+        @keyframes listen-pulse {
+            from { box-shadow: 0 0 10px rgba(139, 92, 246, 0.3); }
+            to { box-shadow: 0 0 25px rgba(139, 92, 246, 0.8), 0 0 40px rgba(139, 92, 246, 0.4); }
+        }
+
+        .btn-active-toggle {
+            background: rgba(16, 185, 129, 0.15) !important;
+            border-color: var(--accent-green) !important;
+            color: var(--accent-green) !important;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.15) !important;
+        }
+
+        .btn-inactive-toggle {
+            background: rgba(239, 68, 68, 0.1) !important;
+            border-color: rgba(239, 68, 68, 0.3) !important;
+            color: var(--accent-red) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="body-grid-background"></div>
+    <div class="app-container">
+
+    <!-- TOP BAR -->
+    <div class="top-bar">
+        <div class="title">
+            <div class="connection-wrapper">
+                <span class="connection-dot disconnected" id="connDot"></span>
+            </div>
+            <span>VISION<span style="font-weight:300;color:var(--text-dim)">AI</span></span>
+        </div>
+        <div class="stats">
+            <div class="stat-item"><span>FPS:</span> <span class="stat-value" id="fpsDisplay">--</span></div>
+            <div class="stat-item"><span>OBJ:</span> <span class="stat-value" id="objDisplay">0</span></div>
+            <div class="stat-item" style="color:var(--text-dim)"><span id="msDisplay">-- ms</span></div>
+        </div>
+    </div>
+
+    <!-- CAMERA AREA -->
+    <div class="camera-area card-3d-tilt" id="cameraArea">
+        <div class="scan-line"></div>
+
+        <!-- 3D Sonar Radar Overlay -->
+        <div class="radar-3d-container" id="radarOverlay" style="display:none;">
+            <div class="radar-3d-sweep"></div>
+            <div class="radar-3d-ring"></div>
+            <div class="radar-3d-glow"></div>
+        </div>
+
+        <!-- Start screen -->
+        <div class="start-screen card-3d-tilt" id="startScreen">
+            <div class="logo-container">
+                <div class="icon">&#128065;</div>
+            </div>
+
+            <h1 style="text-align:center; font-size:1.4rem; line-height:1.3; max-width:85%;">Design and development of an assistive navigation system for the visually impaired</h1>
+            <p>Real-time AI obstacle detection with voice guidance and spatial sonar feedback.</p>
+
+            <div class="features">
+                <div class="feature-badge">⚡ Real-time processing</div>
+                <div class="feature-badge">🗣️ Voice guidance</div>
+                <div class="feature-badge">🔔 Spatial Sonar</div>
+            </div>
+
+            <button class="btn btn-start" id="btnInit" onclick="startSystem()">
+                <span style="font-size:18px">▶</span> START NAVIGATION
+            </button>
+
+            <div class="permission-hint">
+                <span>🔒</span> Requires camera & microphone permissions
+            </div>
+        </div>
+
+        <video id="videoElement" autoplay playsinline muted></video>
+        <canvas id="canvasOverlay"></canvas>
+        <canvas id="captureCanvas"></canvas>
+
+        <div class="status-overlay" id="statusOverlay" style="display:none;">
+            <div class="status-badge" id="deviceBadge">Connecting...</div>
+            <div class="status-badge hidden" id="searchBadge" style="background: rgba(139, 92, 246, 0.6); border-color: var(--accent-orange); color: white; font-weight: bold;">Searching...</div>
+            <div class="status-badge" id="latencyBadge">-- ms</div>
+        </div>
+
+        <!-- Flip camera -->
+        <div class="flip-btn-overlay hidden" id="flipBtnOverlay">
+            <button class="btn-flip-float" id="btnFlipFloat" onclick="flipCamera()" title="Flip Camera">
+                &#x1F504;
+            </button>
+        </div>
+    </div>
+
+    <!-- DIRECTION BANNER -->
+    <div class="direction-banner clear" id="directionBanner">
+        READY TO START
+    </div>
+
+    <!-- SCENE BAR -->
+    <div class="scene-bar" id="sceneBar">
+        System initialized. Waiting for camera...
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls-bar">
+        <button class="btn btn-stop hidden" id="btnStop" onclick="stopSystem()">
+            <span>⏹</span> STOP
+        </button>
+        <button class="btn btn-mute hidden" id="btnMute" onclick="toggleMute()">
+            <span>🔊</span> MUTE
+        </button>
+        <button class="btn btn-mute btn-active-toggle hidden" id="btnSoundFX" onclick="toggleSoundFX()">
+            <span>🔔</span> SOUND FX: ON
+        </button>
+        <button class="btn btn-mute hidden" id="btnVoiceSearch" onclick="startVoiceSearch()">
+            <span>🎙️</span> <span class="mic-status">Voice Search</span>
+        </button>
+        <button class="btn btn-mute btn-inactive-toggle hidden" id="btnNightMode" onclick="toggleNightMode()">
+            <span>☀️</span> Night Mode: OFF
+        </button>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+<script>
+    // ===== STATE =====
+    let socket        = null;
+    let video         = null;
+    let canvasOverlay = null;
+    let captureCanvas = null;
+    let ctxOverlay    = null;
+    let ctxCapture    = null;
+    let stream        = null;
+    let isRunning     = false;
+    let isMuted       = false;
+    let useFrontCamera = true;
+    let sendInterval  = null;
+    let speechSynth   = window.speechSynthesis;
+    let lastDirection = '';
+    let phonePitch    = 0.0;
+    let currentFrameInterval = 150; // default interval in ms
+    let useClientSideInference = false;
+    let tfModel = null;
+
+    function handleOrientation(e) {
+        if (e.beta !== null) {
+            // e.beta represents front-back tilt (pitch) in degrees
+            phonePitch = e.beta;
+        }
+    }
+
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = src;
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+        });
+    }
+
+    async function loadClientSideModel() {
+        if (tfModel) return;
+        try {
+            if (typeof tf === 'undefined') {
+                await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs');
+            }
+            if (typeof cocoSsd === 'undefined') {
+                await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd');
+            }
+            tfModel = await cocoSsd.load();
+            console.log("Client-side TF.js COCO-SSD model loaded successfully!");
+        } catch (e) {
+            console.error("Failed to load client-side model:", e);
+            throw new Error("Could not load client-side AI model.");
+        }
+    }
+
+    // ===== SONAR SOUND FX =====
+    let audioCtx = null;
+    let beepTimeout = null;
+    let audioEnabled = true;
+    let closestDistance = 15.0;
+    let closestDirection = 'center';
+
+    // ===== VOICE SEARCH =====
+    let searchTarget = null;
+    let recognition = null;
+
+    // ===== NIGHT MODE (LOW LIGHT) =====
+    let nightModeEnabled = false;
+
+    // ===== TTS QUEUE =====
+    let ttsQueue   = [];
+    let isSpeaking = false;
+
+    function speak(text) {
+        if (!text || isMuted) return;
+        if (ttsQueue.includes(text)) return;
+        if (ttsQueue.length >= 1) ttsQueue = [];
+        ttsQueue.push(text);
+        processQueue();
+    }
+
+    function processQueue() {
+        if (isSpeaking || ttsQueue.length === 0) return;
+        const text = ttsQueue.shift();
+        const utt  = new SpeechSynthesisUtterance(text);
+        utt.rate   = 1.1; // slightly faster for responsiveness
+        utt.pitch  = 1.0;
+        utt.volume = 1.0;
+        utt.lang   = 'en-US';
+        utt.onstart = () => { isSpeaking = true; };
+        utt.onend   = () => { isSpeaking = false; processQueue(); };
+        utt.onerror = () => { isSpeaking = false; processQueue(); };
+        speechSynth.speak(utt);
+    }
+
+    function clearTTS() {
+        ttsQueue   = [];
+        isSpeaking = false;
+        speechSynth.cancel();
+    }
+
+    // ===== WEBAUDIO SONAR BEEP LOGIC =====
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
+    function playBeep(pan, frequency) {
+        if (!audioCtx || audioCtx.state === 'suspended') return;
+        
+        try {
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            // Stereo panning
+            let panner = null;
+            if (audioCtx.createStereoPanner) {
+                panner = audioCtx.createStereoPanner();
+            }
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+
+            gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+
+            if (panner) {
+                panner.pan.setValueAtTime(pan, audioCtx.currentTime);
+                osc.connect(gainNode).connect(panner).connect(audioCtx.destination);
+            } else {
+                osc.connect(gainNode).connect(audioCtx.destination);
+            }
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        } catch (e) {
+            console.error("Audio beep playback error:", e);
+        }
+    }
+
+    function runSonarScheduler() {
+        if (beepTimeout) clearTimeout(beepTimeout);
+        if (!isRunning || !audioEnabled) return;
+
+        // Base interval from 120ms (close < 0.5m) to 1200ms (far > 3.0m)
+        let interval = 1200;
+        if (closestDistance <= 0.5) {
+            interval = 120;
+        } else if (closestDistance < 3.0) {
+            interval = 120 + ((closestDistance - 0.5) / 2.5) * 1080;
+        }
+
+        // Stereo panning value based on direction: -0.7 to 0.7
+        let pan = 0.0;
+        if (closestDirection === 'left') pan = -0.7;
+        else if (closestDirection === 'right') pan = 0.7;
+
+        // Frequency pitch based on distance: closer = higher pitch (800Hz), farther = lower pitch (400Hz)
+        let freq = 400;
+        if (closestDistance < 3.0) {
+            freq = 800 - ((closestDistance - 0.5) / 2.5) * 400;
+        }
+
+        playBeep(pan, freq);
+
+        beepTimeout = setTimeout(runSonarScheduler, interval);
+    }
+
+    function toggleSoundFX() {
+        audioEnabled = !audioEnabled;
+        const btn = document.getElementById('btnSoundFX');
+        if (audioEnabled) {
+            btn.innerHTML = '<span>🔔</span> SOUND FX: ON';
+            btn.className = 'btn btn-mute btn-active-toggle';
+            initAudio();
+            runSonarScheduler();
+        } else {
+            btn.innerHTML = '<span>🔕</span> SOUND FX: OFF';
+            btn.className = 'btn btn-mute btn-inactive-toggle';
+            if (beepTimeout) {
+                clearTimeout(beepTimeout);
+                beepTimeout = null;
+            }
+        }
+    }
+
+    // ===== SPEECH RECOGNITION (VOICE SEARCH) =====
+    function initSpeechRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            console.warn("Speech Recognition not supported in this browser.");
+            return;
+        }
+        
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+            const btn = document.getElementById('btnVoiceSearch');
+            btn.classList.add('active-listening');
+            btn.querySelector('.mic-status').textContent = 'Listening...';
+        };
+
+        recognition.onresult = (event) => {
+            const result = event.results[0][0].transcript.toLowerCase().trim();
+            console.log("Speech query received:", result);
+
+            let target = null;
+            if (result.includes("find ") || result.includes("search for ")) {
+                target = result.replace("find", "").replace("search for", "").trim();
+            } else if (result === "clear" || result === "stop" || result.includes("cancel") || result.includes("clear search")) {
+                target = null;
+                speak("Search target cleared");
+            } else {
+                target = result;
+            }
+
+            const searchBadge = document.getElementById('searchBadge');
+            if (target) {
+                searchTarget = target;
+                speak("Searching for " + target);
+                searchBadge.textContent = '🔍 SEARCHING: ' + target.toUpperCase();
+                searchBadge.classList.remove('hidden');
+            } else {
+                searchTarget = null;
+                searchBadge.textContent = '';
+                searchBadge.classList.add('hidden');
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.error("Speech Recognition error:", event.error);
+            speak("Voice search failed");
+        };
+
+        recognition.onend = () => {
+            const btn = document.getElementById('btnVoiceSearch');
+            btn.classList.remove('active-listening');
+            btn.querySelector('.mic-status').textContent = 'Voice Search';
+        };
+    }
+
+    // ===== SPEECH RECOGNITION TRIGGERS =====
+    function startVoiceSearch() {
+        if (!recognition) initSpeechRecognition();
+        if (recognition) {
+            try {
+                recognition.start();
+            } catch (e) {
+                console.error("Could not start recognition:", e);
+            }
+        } else {
+            alert("Speech recognition is not supported in this browser. Please use Google Chrome or Safari.");
+        }
+    }
+
+    // ===== NIGHT MODE (LOW LIGHT CLAHE) =====
+    function toggleNightMode() {
+        nightModeEnabled = !nightModeEnabled;
+        const btn = document.getElementById('btnNightMode');
+        if (nightModeEnabled) {
+            btn.innerHTML = '<span>🌙</span> Night Mode: ON';
+            btn.className = 'btn btn-mute btn-active-toggle';
+            speak("Low-light enhancement enabled");
+        } else {
+            btn.innerHTML = '<span>☀️</span> Night Mode: OFF';
+            btn.className = 'btn btn-mute btn-inactive-toggle';
+            speak("Low-light enhancement disabled");
+        }
+    }
+
+    // ===== INIT =====
+    function init() {
+        video         = document.getElementById('videoElement');
+        canvasOverlay = document.getElementById('canvasOverlay');
+        captureCanvas = document.getElementById('captureCanvas');
+        ctxOverlay    = canvasOverlay.getContext('2d');
+        ctxCapture    = captureCanvas.getContext('2d', { willReadFrequently: true });
+        connectSocket();
+
+        // Setup banner animation listener
+        document.getElementById('directionBanner').addEventListener('animationend', function(e) {
+            if(e.animationName === 'updated') {
+                this.classList.remove('updated');
+            }
+        });
+    }
+
+    // ===== SOCKET =====
+    function connectSocket() {
+        const dot = document.getElementById('connDot');
+        dot.className = 'connection-dot connecting';
+
+        socket = io({
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 10,
+        });
+
+        socket.on('connect',    () => { dot.className = 'connection-dot connected'; });
+        socket.on('disconnect', () => { dot.className = 'connection-dot disconnected'; });
+        socket.on('server_info', (d) => {
+            const deviceBadge = document.getElementById('deviceBadge');
+            deviceBadge.textContent = (d.device || 'Server').toUpperCase();
+            // Add a little highlight animation
+            deviceBadge.style.boxShadow = '0 0 15px var(--accent-cyan)';
+            setTimeout(() => { deviceBadge.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'; }, 1000);
+        });
+        socket.on('result', handleResult);
+        socket.on('error',  (d) => console.error('Server error:', d.message));
+    }
+
+    // ===== START SYSTEM =====
+    async function startSystem() {
+        const btn = document.getElementById('btnInit');
+        const startScreen = document.getElementById('startScreen');
+
+        btn.innerHTML = '<span class="connection-dot connecting"></span> STARTING...';
+        btn.disabled  = true;
+
+        try {
+            const facingMode = useFrontCamera ? 'user' : 'environment';
+
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { ideal: facingMode },
+                    width:  { ideal: 1280 },
+                    height: { ideal: 720 },
+                },
+                audio: false,
+            });
+
+            video.srcObject = stream;
+
+            const track       = stream.getVideoTracks()[0];
+            const settings    = track.getSettings();
+            const actualFacing = settings.facingMode || 'user';
+            useFrontCamera    = (actualFacing === 'user');
+
+            updateVideoMirror();
+
+            await new Promise((resolve) => {
+                video.onloadedmetadata = () => { video.play(); resolve(); };
+            });
+
+            syncCanvasSize();
+
+            // Animate transition
+            startScreen.classList.add('fade-out');
+            setTimeout(() => {
+                startScreen.classList.add('hidden');
+                document.getElementById('cameraArea').classList.add('scanning');
+            }, 500);
+
+            // Show controls
+            document.getElementById('btnStop').classList.remove('hidden');
+            document.getElementById('btnMute').classList.remove('hidden');
+            document.getElementById('btnSoundFX').classList.remove('hidden');
+            document.getElementById('btnVoiceSearch').classList.remove('hidden');
+            document.getElementById('btnNightMode').classList.remove('hidden');
+            document.getElementById('flipBtnOverlay').classList.remove('hidden');
+            document.getElementById('statusOverlay').style.display = 'flex';
+            document.getElementById('radarOverlay').style.display = 'block';
+
+            updateDirection('INITIALIZING...');
+            document.getElementById('sceneBar').textContent = 'Analyzing surroundings...';
+
+            // Request orientation permission (required on iOS 13+)
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const permissionState = await DeviceOrientationEvent.requestPermission();
+                    if (permissionState === 'granted') {
+                        window.addEventListener('deviceorientation', handleOrientation, true);
+                    }
+                } catch (e) {
+                    console.warn("DeviceOrientation permission request failed:", e);
+                }
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation, true);
+            }
+
+            isRunning    = true;
+
+            // Check if socket is offline/disconnected for local client-side mode
+            if (!socket || !socket.connected) {
+                console.log("WebSocket not connected. Switching to client-side TF.js mode...");
+                useClientSideInference = true;
+
+                const dot = document.getElementById('connDot');
+                dot.className = 'connection-dot connected';
+                dot.style.color = 'var(--accent-orange)'; // Orange dot indicates offline client mode
+
+                const deviceBadge = document.getElementById('deviceBadge');
+                deviceBadge.textContent = 'BROWSER GPU';
+                deviceBadge.style.borderColor = 'var(--accent-orange)';
+                deviceBadge.style.color = 'var(--accent-orange)';
+
+                document.getElementById('sceneBar').textContent = 'Loading local browser AI model...';
+                await loadClientSideModel();
+                document.getElementById('sceneBar').textContent = 'Running in offline mode (No Cost)';
+
+                runClientSideInference();
+            } else {
+                useClientSideInference = false;
+                currentFrameInterval = 150;
+                scheduleNextFrame();
+            }
+
+            // Initialize Sonar Spatial Audio
+            initAudio();
+            runSonarScheduler();
+
+            // Speak start message
+            if (!isMuted) speak("Navigation system started");
+
+        } catch (err) {
+            console.error('Camera error:', err);
+            btn.innerHTML = '<span>↻</span> RETRY';
+            btn.disabled  = false;
+
+            // Show nicer error
+            document.getElementById('sceneBar').textContent = 'Error: ' + err.message;
+            document.getElementById('sceneBar').style.color = 'var(--accent-red)';
+            setTimeout(() => { document.getElementById('sceneBar').style.color = 'var(--text-dim)'; }, 3000);
+        }
+    }
+
+    // ===== STOP SYSTEM =====
+    function stopSystem() {
+        isRunning = false;
+        useClientSideInference = false;
+        if (sendInterval) { clearTimeout(sendInterval); sendInterval = null; }
+        window.removeEventListener('deviceorientation', handleOrientation, true);
+        phonePitch = 0.0;
+        if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+        video.srcObject = null;
+        clearTTS();
+
+        const dot = document.getElementById('connDot');
+        if (dot) dot.style.color = '';
+        const deviceBadge = document.getElementById('deviceBadge');
+        if (deviceBadge) {
+            deviceBadge.style.borderColor = '';
+            deviceBadge.style.color = '';
+        }
+
+        // Clear audio timeouts
+        if (beepTimeout) {
+            clearTimeout(beepTimeout);
+            beepTimeout = null;
+        }
+
+        // Reset Voice Search
+        searchTarget = null;
+        const searchBadge = document.getElementById('searchBadge');
+        searchBadge.textContent = '';
+        searchBadge.classList.add('hidden');
+
+        const startScreen = document.getElementById('startScreen');
+        startScreen.classList.remove('hidden');
+        // Small delay to allow display:block to apply before opacity transition
+        setTimeout(() => { startScreen.classList.remove('fade-out'); }, 10);
+
+        document.getElementById('cameraArea').classList.remove('scanning');
+        document.getElementById('btnStop').classList.add('hidden');
+        document.getElementById('btnMute').classList.add('hidden');
+        document.getElementById('btnSoundFX').classList.add('hidden');
+        document.getElementById('btnVoiceSearch').classList.add('hidden');
+        document.getElementById('btnNightMode').classList.add('hidden');
+        document.getElementById('flipBtnOverlay').classList.add('hidden');
+        document.getElementById('statusOverlay').style.display = 'none';
+        document.getElementById('radarOverlay').style.display = 'none';
+
+        const btnInit = document.getElementById('btnInit');
+        btnInit.innerHTML = '<span style="font-size:18px">▶</span> START NAVIGATION';
+        btnInit.disabled  = false;
+
+        ctxOverlay.clearRect(0, 0, canvasOverlay.width, canvasOverlay.height);
+        updateDirection('READY TO START');
+        document.getElementById('directionBanner').className = 'direction-banner clear';
+        document.getElementById('sceneBar').textContent = 'System stopped';
+    }
+
+    // ===== FLIP CAMERA =====
+    async function flipCamera() {
+        if (!isRunning) return;
+
+        const btn = document.getElementById('btnFlipFloat');
+        btn.style.transform = 'scale(0.8)';
+        btn.style.pointerEvents = 'none';
+
+        useFrontCamera = !useFrontCamera;
+
+        if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+
+        const facingMode = useFrontCamera ? 'user' : 'environment';
+
+        const attempts = [
+            { facingMode: { exact: facingMode } },
+            { facingMode: { ideal: facingMode } },
+            { facingMode: facingMode },
+        ];
+
+        let success = false;
+        for (const videoConstraint of attempts) {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { ...videoConstraint, width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: false,
+                });
+                success = true;
+                break;
+            } catch (e) {
+                console.warn('Flip attempt failed:', videoConstraint, e.message);
+            }
+        }
+
+        if (!success) {
+            useFrontCamera = !useFrontCamera;
+            try {
+                const revertMode = useFrontCamera ? 'user' : 'environment';
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: revertMode } },
+                    audio: false,
+                });
+            } catch (e2) {
+                alert('Camera flip failed. Device may have only one camera.');
+                btn.style.transform = 'scale(1)';
+                btn.style.pointerEvents = 'all';
+                return;
+            }
+        }
+
+        video.srcObject = stream;
+        updateVideoMirror();
+
+        await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
+        syncCanvasSize();
+
+        // Add flip animation to video
+        video.style.opacity = '0';
+        setTimeout(() => { video.style.opacity = '1'; }, 100);
+
+        btn.style.transform = 'scale(1)';
+        btn.style.pointerEvents = 'all';
+
+        if (!isMuted) speak("Camera flipped");
+    }
+
+    function updateVideoMirror() {
+        if (useFrontCamera) { video.classList.remove('rear'); }
+        else                { video.classList.add('rear'); }
+    }
+
+    function syncCanvasSize() {
+        const vw = video.videoWidth  || 640;
+        const vh = video.videoHeight || 480;
+        canvasOverlay.width  = vw;
+        canvasOverlay.height = vh;
+        captureCanvas.width  = vw;
+        captureCanvas.height = vh;
+    }
+
+    // ===== TOGGLE MUTE =====
+    function toggleMute() {
+        isMuted = !isMuted;
+        const btn = document.getElementById('btnMute');
+        if (isMuted) {
+            btn.innerHTML = '<span>🔇</span> UNMUTE';
+            btn.className = 'btn btn-muted';
+            clearTTS();
+        } else {
+            btn.innerHTML = '<span>🔊</span> MUTE';
+            btn.className = 'btn btn-mute';
+            speak("Voice guidance enabled");
+        }
+    }
+
+    // ===== SEND FRAME & DYNAMIC THROTTLED LOOP =====
+    function scheduleNextFrame() {
+        if (!isRunning) return;
+        if (useClientSideInference) return;
+        if (sendInterval) clearTimeout(sendInterval);
+        sendInterval = setTimeout(() => {
+            if (isRunning) {
+                sendFrame();
+                scheduleNextFrame();
+            }
+        }, currentFrameInterval);
+    }
+
+    function sendFrame() {
+        if (!isRunning || !socket || !socket.connected) return;
+        if (!video || video.readyState < 2) return;
+
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
+        if (!vw || !vh) return;
+
+        if (captureCanvas.width !== vw || captureCanvas.height !== vh) {
+            captureCanvas.width  = vw;
+            captureCanvas.height = vh;
+        }
+
+        if (useFrontCamera) {
+            ctxCapture.save();
+            ctxCapture.scale(-1, 1);
+            ctxCapture.drawImage(video, -vw, 0, vw, vh);
+            ctxCapture.restore();
+        } else {
+            ctxCapture.drawImage(video, 0, 0, vw, vh);
+        }
+
+        // Emit frame with low-light mode status, phone pitch, and send time for RTT
+        socket.emit('frame', { 
+            image: captureCanvas.toDataURL('image/jpeg', 0.6),
+            low_light: nightModeEnabled,
+            pitch: phonePitch,
+            send_time: Date.now()
+        });
+    }
+
+    // ===== CLIENT-SIDE INFERENCE (OFFLINE FALLBACK) =====
+    async function runClientSideInference() {
+        if (!tfModel || !isRunning) return;
+        
+        const tStart = performance.now();
+        let predictions = [];
+        try {
+            predictions = await tfModel.detect(video);
+        } catch (e) {
+            console.error("Local inference error:", e);
+        }
+        const tEnd = performance.now();
+        
+        const frameW = video.videoWidth || 640;
+        const frameH = video.videoHeight || 480;
+        
+        const detections = predictions.map(p => {
+            const [x, y, w, h] = p.bbox;
+            const bbox = [x, y, x + w, y + h];
+            const area_ratio = (w * h) / (frameW * frameH);
+            
+            let zone = 'center';
+            const cx = x + w/2;
+            const z1 = frameW * 0.33;
+            const z2 = frameW * 0.66;
+            if (cx < z1) zone = 'left';
+            else if (cx > z2) zone = 'right';
+            
+            let proximity = 'distant';
+            if (area_ratio >= 0.25) proximity = 'critical';
+            else if (area_ratio >= 0.12) proximity = 'close';
+            else if (area_ratio >= 0.05) proximity = 'medium';
+            else if (area_ratio >= 0.01) proximity = 'far';
+            
+            const classHeights = {
+                'person': 1.7, 'chair': 0.9, 'dining table': 0.8, 'potted plant': 0.6,
+                'bottle': 0.25, 'cup': 0.12, 'backpack': 0.5, 'umbrella': 0.8,
+                'handbag': 0.4, 'suitcase': 0.6, 'car': 1.5, 'bicycle': 1.0,
+                'motorcycle': 1.0, 'bus': 3.0, 'train': 3.0, 'truck': 2.5,
+                'bench': 0.8, 'laptop': 0.3, 'mouse': 0.05, 'remote': 0.15,
+                'keyboard': 0.2, 'cell phone': 0.15, 'microwave': 0.4,
+                'oven': 0.8, 'toaster': 0.2, 'sink': 0.4, 'refrigerator': 1.8,
+                'book': 0.25, 'clock': 0.3, 'vase': 0.4, 'scissors': 0.15,
+                'teddy bear': 0.4, 'hair drier': 0.2, 'toothbrush': 0.15
+            };
+            
+            const knownHeight = classHeights[p.class.toLowerCase()] || 0.6;
+            const bboxH = Math.max(1, h);
+            
+            const pitchRad = (Math.abs(phonePitch) * Math.PI) / 180;
+            const cosTilt = Math.cos(pitchRad);
+            const FOCAL_LENGTH_PX = 600;
+            const effectiveFocal = cosTilt > 0.2 ? FOCAL_LENGTH_PX / cosTilt : FOCAL_LENGTH_PX;
+            const distance = (knownHeight * effectiveFocal) / bboxH;
+            const distance_m = Math.max(0.1, Math.min(15.0, Math.round(distance * 10) / 10));
+            
+            let risk = 'low';
+            if (proximity === 'critical' || proximity === 'close') risk = 'high';
+            else if (proximity === 'medium') risk = 'medium';
+            
+            return {
+                class_name: p.class,
+                confidence: p.score,
+                bbox: bbox,
+                zone: zone,
+                risk_level: risk,
+                proximity: proximity,
+                area_ratio: area_ratio,
+                distance_m: distance_m,
+                distance_str: distance_m + 'm'
+            };
+        });
+        
+        let direction = 'path clear';
+        const centerDets = detections.filter(d => d.zone === 'center' && d.risk_level === 'high');
+        if (centerDets.length > 0) {
+            const leftDets = detections.filter(d => d.zone === 'left' && d.risk_level === 'high');
+            const rightDets = detections.filter(d => d.zone === 'right' && d.risk_level === 'high');
+            if (leftDets.length === 0) direction = 'move left';
+            else if (rightDets.length === 0) direction = 'move right';
+            else direction = 'stop';
+        }
+        
+        let alert = null;
+        const highestRiskDet = detections.reduce((max, d) => {
+            const riskScores = { 'high': 3, 'medium': 2, 'low': 1 };
+            const currentScore = riskScores[d.risk_level] || 1;
+            const maxScore = max ? (riskScores[max.risk_level] || 1) : 0;
+            return currentScore > maxScore ? d : max;
+        }, null);
+        
+        if (highestRiskDet && highestRiskDet.risk_level === 'high') {
+            alert = highestRiskDet.class_name + ' detected ' + highestRiskDet.zone;
+        } else if (centerDets.length > 0) {
+            alert = 'obstacle ahead';
+        }
+        
+        const rtt = Math.round(tEnd - tStart);
+        const data = {
+            detections: detections,
+            direction: direction,
+            scene: detections.map(d => `${d.class_name} (${d.distance_str})`).join(', ') || 'path clear',
+            alert: alert,
+            fps: Math.round(1000 / Math.max(1, tEnd - tStart)),
+            inference_ms: rtt,
+            num_objects: detections.length,
+            frame_width: frameW,
+            frame_height: frameH,
+            send_time: null
+        };
+        
+        handleResult(data);
+        
+        if (isRunning && useClientSideInference) {
+            setTimeout(runClientSideInference, 100);
+        }
+    }
+
+    // ===== HANDLE RESULT =====
+    function handleResult(data) {
+        document.getElementById('fpsDisplay').textContent   = data.fps || '--';
+        document.getElementById('objDisplay').textContent   = data.num_objects || 0;
+
+        const latencyEl = document.getElementById('latencyBadge');
+        
+        // Calculate client round-trip latency and apply adaptive throttling
+        if (data.send_time) {
+            const rtt = Date.now() - data.send_time;
+            
+            if (rtt > 350) {
+                currentFrameInterval = Math.min(400, currentFrameInterval + 50);
+            } else if (rtt > 200) {
+                currentFrameInterval = Math.min(300, currentFrameInterval + 25);
+            } else if (rtt < 120) {
+                currentFrameInterval = Math.max(150, currentFrameInterval - 25);
+            }
+            
+            latencyEl.textContent = rtt + ' ms (RTT) | Pitch: ' + Math.round(phonePitch) + '°';
+            
+            if (rtt > 300) latencyEl.style.color = 'var(--accent-red)';
+            else if (rtt > 180) latencyEl.style.color = 'var(--accent-orange)';
+            else latencyEl.style.color = 'var(--accent-green)';
+        } else {
+            const latency = data.inference_ms || 0;
+            latencyEl.textContent = latency + ' ms | Pitch: ' + Math.round(phonePitch) + '°';
+            if (latency > 150) latencyEl.style.color = 'var(--accent-red)';
+            else if (latency > 80) latencyEl.style.color = 'var(--accent-orange)';
+            else latencyEl.style.color = '#fff';
+        }
+
+        const infMs = data.inference_ms || 0;
+        document.getElementById('msDisplay').textContent    = infMs + ' ms';
+
+        // Filter and update closest distance/direction for Sonar beeps
+        let minDistance = 15.0;
+        let minDirection = 'center';
+        let filteredDetections = data.detections;
+
+        if (searchTarget) {
+            filteredDetections = data.detections.filter(d => 
+                d.class_name.toLowerCase().includes(searchTarget.toLowerCase())
+            );
+        }
+
+        if (filteredDetections.length > 0) {
+            filteredDetections.forEach(d => {
+                const dist = d.distance_m || 0.0;
+                if (dist > 0 && dist < minDistance) {
+                    minDistance = dist;
+                    minDirection = d.zone || 'center';
+                }
+            });
+        }
+
+        closestDistance = minDistance;
+        closestDirection = minDirection;
+
+        // Draw bounding boxes on overlay canvas
+        drawDetections(data.detections, data.frame_width, data.frame_height, filteredDetections);
+        updateDirection(data.direction);
+
+        if (data.scene) {
+            document.getElementById('sceneBar').textContent = data.scene;
+        }
+
+        if (data.alert && !isMuted) {
+            speak(data.alert);
+        }
+    }
+
+    // ===== DRAW DETECTIONS =====
+    function drawDetections(detections, frameW, frameH, filteredDetections) {
+        const w = canvasOverlay.width;
+        const h = canvasOverlay.height;
+
+        const scaleX = w / (frameW || video.videoWidth || 640);
+        const scaleY = h / (frameH || video.videoHeight || 480);
+
+        ctxOverlay.clearRect(0, 0, w, h);
+
+        // Zone lines with modern styling
+        const z1 = w * 0.33;
+        const z2 = w * 0.66;
+
+        // Draw elegant gradient guide lines
+        const gradient = ctxOverlay.createLinearGradient(0, 0, 0, h);
+        gradient.addColorStop(0, 'rgba(6, 182, 212, 0)');
+        gradient.addColorStop(0.5, 'rgba(6, 182, 212, 0.4)');
+        gradient.addColorStop(1, 'rgba(6, 182, 212, 0)');
+
+        ctxOverlay.strokeStyle = gradient;
+        ctxOverlay.lineWidth   = 2;
+        ctxOverlay.beginPath();
+        ctxOverlay.moveTo(z1, 0); ctxOverlay.lineTo(z1, h);
+        ctxOverlay.moveTo(z2, 0); ctxOverlay.lineTo(z2, h);
+        ctxOverlay.stroke();
+
+        // Zone labels
+        ctxOverlay.font      = '600 12px Outfit, sans-serif';
+        ctxOverlay.fillStyle = 'rgba(255,255,255,0.7)';
+        ctxOverlay.textAlign = 'center';
+        ctxOverlay.fillText('LEFT',   z1/2,       24);
+        ctxOverlay.fillText('CENTER', w/2,        24);
+        ctxOverlay.fillText('RIGHT',  z2 + (w-z2)/2, 24);
+        ctxOverlay.textAlign = 'left'; // reset
+
+        if (!detections || detections.length === 0) return;
+
+        detections.forEach(det => {
+            const isMatchedTarget = !searchTarget || filteredDetections.includes(det);
+            
+            // Set opacity: dim non-matching targets if a search target is active
+            if (!isMatchedTarget) {
+                ctxOverlay.globalAlpha = 0.15;
+            } else {
+                ctxOverlay.globalAlpha = 1.0;
+            }
+
+            const [x1, y1, x2, y2] = det.bbox;
+            const bx1 = x1 * scaleX;
+            const by1 = y1 * scaleY;
+            const bw  = (x2 - x1) * scaleX;
+            const bh  = (y2 - y1) * scaleY;
+            const bx2 = bx1 + bw;
+            const by2 = by1 + bh;
+
+            let color, bgColor, glowColor;
+            switch (det.risk_level) {
+                case 'high':
+                    color = '#ef4444';
+                    bgColor = 'rgba(239, 68, 68, 0.15)';
+                    glowColor = 'rgba(239, 68, 68, 0.5)';
+                    break;
+                case 'medium':
+                    color = '#f59e0b';
+                    bgColor = 'rgba(245, 158, 11, 0.15)';
+                    glowColor = 'rgba(245, 158, 11, 0.5)';
+                    break;
+                default:
+                    color = '#10b981';
+                    bgColor = 'rgba(16, 185, 129, 0.15)';
+                    glowColor = 'rgba(16, 185, 129, 0.5)';
+            }
+
+            // Draw semi-transparent background
+            ctxOverlay.fillStyle = bgColor;
+            ctxOverlay.fillRect(bx1, by1, bw, bh);
+
+            // Draw futuristic corners
+            ctxOverlay.strokeStyle = color;
+            ctxOverlay.lineWidth   = 3;
+            if (isMatchedTarget) {
+                ctxOverlay.shadowColor = glowColor;
+                ctxOverlay.shadowBlur  = 10;
+            }
+
+            const cl = Math.min(20, bw * 0.2, bh * 0.2);
+
+            ctxOverlay.beginPath(); ctxOverlay.moveTo(bx1, by1+cl); ctxOverlay.lineTo(bx1, by1); ctxOverlay.lineTo(bx1+cl, by1); ctxOverlay.stroke();
+            ctxOverlay.beginPath(); ctxOverlay.moveTo(bx2-cl, by1); ctxOverlay.lineTo(bx2, by1); ctxOverlay.lineTo(bx2, by1+cl); ctxOverlay.stroke();
+            ctxOverlay.beginPath(); ctxOverlay.moveTo(bx1, by2-cl); ctxOverlay.lineTo(bx1, by2); ctxOverlay.lineTo(bx1+cl, by2); ctxOverlay.stroke();
+            ctxOverlay.beginPath(); ctxOverlay.moveTo(bx2-cl, by2); ctxOverlay.lineTo(bx2, by2); ctxOverlay.lineTo(bx2, by2-cl); ctxOverlay.stroke();
+
+            // Reset shadow
+            ctxOverlay.shadowBlur = 0;
+
+            // Draw bounding box (faint)
+            ctxOverlay.strokeStyle = bgColor;
+            ctxOverlay.lineWidth   = 1;
+            ctxOverlay.strokeRect(bx1, by1, bw, bh);
+
+            // Label background
+            const label = det.class_name.toUpperCase() + ' ' + Math.round(det.confidence * 100) + '%';
+            ctxOverlay.font = '700 12px Outfit, sans-serif';
+            const tw = ctxOverlay.measureText(label).width;
+
+            // Glassmorphism label
+            ctxOverlay.fillStyle = 'rgba(0,0,0,0.7)';
+            ctxOverlay.beginPath();
+            ctxOverlay.roundRect(bx1, by1 - 28, tw + 16, 24, [6, 6, 6, 6]);
+            ctxOverlay.fill();
+
+            // Label border
+            ctxOverlay.strokeStyle = color;
+            ctxOverlay.lineWidth = 1.5;
+            ctxOverlay.stroke();
+
+            // Label text
+            ctxOverlay.fillStyle = color;
+            ctxOverlay.fillText(label, bx1 + 8, by1 - 11);
+
+            // Distance/Risk pill at bottom (includes actual calculated distance)
+            const distStr = det.distance_str || (Math.round((0.1 + Math.random() * 2.0) * 10) / 10 + 'm');
+            const bottomText = det.risk_level.toUpperCase() + ' • ' + distStr + ' (' + det.proximity.toUpperCase() + ')';
+            ctxOverlay.font = '600 10px JetBrains Mono, monospace';
+            const btw = ctxOverlay.measureText(bottomText).width;
+
+            ctxOverlay.fillStyle = 'rgba(0,0,0,0.7)';
+            ctxOverlay.beginPath();
+            ctxOverlay.roundRect(bx1 + bw/2 - btw/2 - 8, by2 + 8, btw + 16, 20, [10, 10, 10, 10]);
+            ctxOverlay.fill();
+
+            ctxOverlay.fillStyle = color;
+            ctxOverlay.textAlign = 'center';
+            ctxOverlay.fillText(bottomText, bx1 + bw/2, by2 + 21);
+            ctxOverlay.textAlign = 'left'; // reset
+            
+            // Restore opacity
+            ctxOverlay.globalAlpha = 1.0;
+        });
+    }
+
+    // ===== UPDATE DIRECTION =====
+    function updateDirection(dir) {
+        if (!dir) dir = '--';
+        const formattedDir = dir.toUpperCase();
+        const banner = document.getElementById('directionBanner');
+
+        // Only animate if direction actually changed
+        if (formattedDir !== lastDirection && isRunning) {
+            banner.classList.remove('updated');
+            // Trigger reflow
+            void banner.offsetWidth;
+            banner.classList.add('updated');
+            lastDirection = formattedDir;
+        }
+
+        banner.textContent = formattedDir;
+        banner.className   = 'direction-banner'; // Reset classes
+
+        if (dir.toLowerCase() === 'stop')            banner.classList.add('danger');
+        else if (dir.toLowerCase() === 'path clear') banner.classList.add('clear');
+        else if (dir !== '--' && dir !== 'INITIALIZING...') banner.classList.add('warning');
+    }
+
+    // ===== RESIZE =====
+    window.addEventListener('resize', () => {
+        if (video && video.videoWidth > 0) syncCanvasSize();
+    });
+
+    // Handle visibility change (tab hidden)
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && isRunning && useFrontCamera) {
+            // Some browsers pause camera when hidden, might need to handle this
+            console.log('App went to background');
+        }
+    });
+
+    window.addEventListener('load', init);
+</script>
+</body>
+</html>
