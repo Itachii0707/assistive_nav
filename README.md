@@ -9,6 +9,9 @@
 
 ---
 
+> [!WARNING]
+> **Deployment & Accuracy Note:** This project must be run using its local Python backend (`run_web.py` or `main.py`). Do not deploy it as a purely static website (e.g., via GitHub Pages or Vercel). Static deployments force the app to use a lightweight client-side TensorFlow.js fallback model, which results in **poor accuracy and bounding box errors**. The high accuracy and custom object detection are only available when the backend Python server is running the custom YOLOv8 model.
+
 ## 🌟 Key Features
 
 *   **Real-time Object Detection:** Powered by a dual-model system (general COCO + custom trained navigation objects) using the YOLO architecture for high accuracy and speed.
