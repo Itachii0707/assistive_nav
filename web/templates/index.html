@@ -772,11 +772,40 @@
     let lastDirection = '';
     let phonePitch    = 0.0;
     let currentFrameInterval = 150; // default interval in ms
+    let useClientSideInference = false;
+    let tfModel = null;
 
     function handleOrientation(e) {
         if (e.beta !== null) {
             // e.beta represents front-back tilt (pitch) in degrees
             phonePitch = e.beta;
+        }
+    }
+
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = src;
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+        });
+    }
+
+    async function loadClientSideModel() {
+        if (tfModel) return;
+        try {
+            if (typeof tf === 'undefined') {
+                await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs');
+            }
+            if (typeof cocoSsd === 'undefined') {
+                await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd');
+            }
+            tfModel = await cocoSsd.load();
+            console.log("Client-side TF.js COCO-SSD model loaded successfully!");
+        } catch (e) {
+            console.error("Failed to load client-side model:", e);
+            throw new Error("Could not load client-side AI model.");
         }
     }
 
@@ -1114,8 +1143,31 @@
             }
 
             isRunning    = true;
-            currentFrameInterval = 150;
-            scheduleNextFrame();
+
+            // Check if socket is offline/disconnected for local client-side mode
+            if (!socket || !socket.connected) {
+                console.log("WebSocket not connected. Switching to client-side TF.js mode...");
+                useClientSideInference = true;
+
+                const dot = document.getElementById('connDot');
+                dot.className = 'connection-dot connected';
+                dot.style.color = 'var(--accent-orange)'; // Orange dot indicates offline client mode
+
+                const deviceBadge = document.getElementById('deviceBadge');
+                deviceBadge.textContent = 'BROWSER GPU';
+                deviceBadge.style.borderColor = 'var(--accent-orange)';
+                deviceBadge.style.color = 'var(--accent-orange)';
+
+                document.getElementById('sceneBar').textContent = 'Loading local browser AI model...';
+                await loadClientSideModel();
+                document.getElementById('sceneBar').textContent = 'Running in offline mode (No Cost)';
+
+                runClientSideInference();
+            } else {
+                useClientSideInference = false;
+                currentFrameInterval = 150;
+                scheduleNextFrame();
+            }
 
             // Initialize Sonar Spatial Audio
             initAudio();
@@ -1139,12 +1191,21 @@
     // ===== STOP SYSTEM =====
     function stopSystem() {
         isRunning = false;
+        useClientSideInference = false;
         if (sendInterval) { clearTimeout(sendInterval); sendInterval = null; }
         window.removeEventListener('deviceorientation', handleOrientation, true);
         phonePitch = 0.0;
         if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
         video.srcObject = null;
         clearTTS();
+
+        const dot = document.getElementById('connDot');
+        if (dot) dot.style.color = '';
+        const deviceBadge = document.getElementById('deviceBadge');
+        if (deviceBadge) {
+            deviceBadge.style.borderColor = '';
+            deviceBadge.style.color = '';
+        }
 
         // Clear audio timeouts
         if (beepTimeout) {
@@ -1281,6 +1342,7 @@
     // ===== SEND FRAME & DYNAMIC THROTTLED LOOP =====
     function scheduleNextFrame() {
         if (!isRunning) return;
+        if (useClientSideInference) return;
         if (sendInterval) clearTimeout(sendInterval);
         sendInterval = setTimeout(() => {
             if (isRunning) {
@@ -1319,6 +1381,124 @@
             pitch: phonePitch,
             send_time: Date.now()
         });
+    }
+
+    // ===== CLIENT-SIDE INFERENCE (OFFLINE FALLBACK) =====
+    async function runClientSideInference() {
+        if (!tfModel || !isRunning) return;
+        
+        const tStart = performance.now();
+        let predictions = [];
+        try {
+            predictions = await tfModel.detect(video);
+        } catch (e) {
+            console.error("Local inference error:", e);
+        }
+        const tEnd = performance.now();
+        
+        const frameW = video.videoWidth || 640;
+        const frameH = video.videoHeight || 480;
+        
+        const detections = predictions.map(p => {
+            const [x, y, w, h] = p.bbox;
+            const bbox = [x, y, x + w, y + h];
+            const area_ratio = (w * h) / (frameW * frameH);
+            
+            let zone = 'center';
+            const cx = x + w/2;
+            const z1 = frameW * 0.33;
+            const z2 = frameW * 0.66;
+            if (cx < z1) zone = 'left';
+            else if (cx > z2) zone = 'right';
+            
+            let proximity = 'distant';
+            if (area_ratio >= 0.25) proximity = 'critical';
+            else if (area_ratio >= 0.12) proximity = 'close';
+            else if (area_ratio >= 0.05) proximity = 'medium';
+            else if (area_ratio >= 0.01) proximity = 'far';
+            
+            const classHeights = {
+                'person': 1.7, 'chair': 0.9, 'dining table': 0.8, 'potted plant': 0.6,
+                'bottle': 0.25, 'cup': 0.12, 'backpack': 0.5, 'umbrella': 0.8,
+                'handbag': 0.4, 'suitcase': 0.6, 'car': 1.5, 'bicycle': 1.0,
+                'motorcycle': 1.0, 'bus': 3.0, 'train': 3.0, 'truck': 2.5,
+                'bench': 0.8, 'laptop': 0.3, 'mouse': 0.05, 'remote': 0.15,
+                'keyboard': 0.2, 'cell phone': 0.15, 'microwave': 0.4,
+                'oven': 0.8, 'toaster': 0.2, 'sink': 0.4, 'refrigerator': 1.8,
+                'book': 0.25, 'clock': 0.3, 'vase': 0.4, 'scissors': 0.15,
+                'teddy bear': 0.4, 'hair drier': 0.2, 'toothbrush': 0.15
+            };
+            
+            const knownHeight = classHeights[p.class.toLowerCase()] || 0.6;
+            const bboxH = Math.max(1, h);
+            
+            const pitchRad = (Math.abs(phonePitch) * Math.PI) / 180;
+            const cosTilt = Math.cos(pitchRad);
+            const FOCAL_LENGTH_PX = 600;
+            const effectiveFocal = cosTilt > 0.2 ? FOCAL_LENGTH_PX / cosTilt : FOCAL_LENGTH_PX;
+            const distance = (knownHeight * effectiveFocal) / bboxH;
+            const distance_m = Math.max(0.1, Math.min(15.0, Math.round(distance * 10) / 10));
+            
+            let risk = 'low';
+            if (proximity === 'critical' || proximity === 'close') risk = 'high';
+            else if (proximity === 'medium') risk = 'medium';
+            
+            return {
+                class_name: p.class,
+                confidence: p.score,
+                bbox: bbox,
+                zone: zone,
+                risk_level: risk,
+                proximity: proximity,
+                area_ratio: area_ratio,
+                distance_m: distance_m,
+                distance_str: distance_m + 'm'
+            };
+        });
+        
+        let direction = 'path clear';
+        const centerDets = detections.filter(d => d.zone === 'center' && d.risk_level === 'high');
+        if (centerDets.length > 0) {
+            const leftDets = detections.filter(d => d.zone === 'left' && d.risk_level === 'high');
+            const rightDets = detections.filter(d => d.zone === 'right' && d.risk_level === 'high');
+            if (leftDets.length === 0) direction = 'move left';
+            else if (rightDets.length === 0) direction = 'move right';
+            else direction = 'stop';
+        }
+        
+        let alert = null;
+        const highestRiskDet = detections.reduce((max, d) => {
+            const riskScores = { 'high': 3, 'medium': 2, 'low': 1 };
+            const currentScore = riskScores[d.risk_level] || 1;
+            const maxScore = max ? (riskScores[max.risk_level] || 1) : 0;
+            return currentScore > maxScore ? d : max;
+        }, null);
+        
+        if (highestRiskDet && highestRiskDet.risk_level === 'high') {
+            alert = highestRiskDet.class_name + ' detected ' + highestRiskDet.zone;
+        } else if (centerDets.length > 0) {
+            alert = 'obstacle ahead';
+        }
+        
+        const rtt = Math.round(tEnd - tStart);
+        const data = {
+            detections: detections,
+            direction: direction,
+            scene: detections.map(d => `${d.class_name} (${d.distance_str})`).join(', ') || 'path clear',
+            alert: alert,
+            fps: Math.round(1000 / Math.max(1, tEnd - tStart)),
+            inference_ms: rtt,
+            num_objects: detections.length,
+            frame_width: frameW,
+            frame_height: frameH,
+            send_time: null
+        };
+        
+        handleResult(data);
+        
+        if (isRunning && useClientSideInference) {
+            setTimeout(runClientSideInference, 100);
+        }
     }
 
     // ===== HANDLE RESULT =====
