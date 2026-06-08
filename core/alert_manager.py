@@ -1,34 +1,33 @@
 """
-alert_manager.py — Speaks EVERY 2 seconds. Full sentences. Never stops.
+alert_manager.py — Desktop TTS alert manager.
 
-EXAMPLES OF WHAT IT SAYS:
-  "Person detected ahead, please move left"
-  "Chair detected on your right, please be careful"
-  "Car detected ahead, please stop immediately"
-  "Path is clear, you may continue walking"
+Speaks every 5 seconds. Never repeats same message back-to-back.
+Path clear spoken less frequently (every 10 seconds).
 """
 
 import time
 import threading
+from core.config import ALERT_SPEAK_INTERVAL, PATH_CLEAR_INTERVAL
 
 
 class AlertManager:
-    """Simple, reliable alert manager. Speaks every 2 seconds."""
+    """Reliable alert manager for pyttsx3 desktop TTS."""
 
     def __init__(self, tts_engine=None):
         self.tts_engine = tts_engine
         self.lock = threading.Lock()
         self._running = True
 
-        # Current alert to speak
-        self.current_alert = ""
-        self.last_spoken_time = 0.0
+        self.current_alert      = ""
+        self.last_spoken_time   = 0.0
         self.last_spoken_message = ""
+        self.last_path_clear_time = 0.0
 
-        # Speak interval
-        self.SPEAK_INTERVAL = 2.0  # Speak every 2 seconds
+        # 5 seconds — enough for pyttsx3 to finish full sentence
+        self.SPEAK_INTERVAL      = max(ALERT_SPEAK_INTERVAL, 5.0)
+        # Path clear is less urgent — speak every 10 seconds
+        self.PATH_CLEAR_INTERVAL = max(PATH_CLEAR_INTERVAL, 10.0)
 
-        # Start speaker thread
         self._thread = threading.Thread(target=self._speaker_loop, daemon=True)
         self._thread.start()
 
@@ -36,11 +35,11 @@ class AlertManager:
         self.tts_engine = tts_engine
 
     def update_scene(self, detections):
-        """Not used. Kept for compatibility."""
+        """Kept for compatibility."""
         pass
 
     def set_alert(self, message):
-        """Set the current alert message. Called every detection frame."""
+        """Set current alert. Called every detection frame."""
         with self.lock:
             self.current_alert = message
 
@@ -51,22 +50,35 @@ class AlertManager:
             self.current_alert = message
 
     def _speaker_loop(self):
-        """Runs forever. Speaks current alert every 2 seconds."""
+        """Runs forever. Speaks current alert on interval."""
         while self._running:
             now = time.time()
 
-            # Check if 2 seconds passed since last speech
-            if now - self.last_spoken_time >= self.SPEAK_INTERVAL:
-                message = ""
-                with self.lock:
-                    message = self.current_alert
+            with self.lock:
+                message = self.current_alert
 
-                if message and len(message) > 0:
-                    self._speak(message)
-                    self.last_spoken_time = time.time()
-                    self.last_spoken_message = message
+            if message:
+                is_path_clear = "path is clear" in message.lower()
 
-            time.sleep(0.1)  # Check 10 times per second
+                if is_path_clear:
+                    # Path clear — speak every PATH_CLEAR_INTERVAL
+                    if now - self.last_path_clear_time >= self.PATH_CLEAR_INTERVAL:
+                        self._speak(message)
+                        self.last_path_clear_time = time.time()
+                        self.last_spoken_time     = time.time()
+                        self.last_spoken_message  = message
+                else:
+                    # Obstacle alert — speak every SPEAK_INTERVAL
+                    # Skip if same message already spoken (no repeating same warning)
+                    time_ok    = (now - self.last_spoken_time >= self.SPEAK_INTERVAL)
+                    message_ok = (message != self.last_spoken_message)
+
+                    if time_ok and message_ok:
+                        self._speak(message)
+                        self.last_spoken_time    = time.time()
+                        self.last_spoken_message = message
+
+            time.sleep(0.1)
 
     def _speak(self, message):
         """Speak message using pyttsx3."""
@@ -78,7 +90,6 @@ class AlertManager:
             self.tts_engine.speak(message)
         except Exception as e:
             print(f"[ALERT] TTS error: {e}")
-            # Try to reinitialize TTS
             try:
                 self.tts_engine._init_engine()
             except Exception:
@@ -88,5 +99,7 @@ class AlertManager:
         self._running = False
         if self._thread.is_alive():
             self._thread.join(timeout=2)
+
+
 
             

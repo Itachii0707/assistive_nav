@@ -9,3 +9,8 @@ runs/
 datasets/
 *.log
 .idea/
+cmd runs
+detection_log.json
+download_*.py
+test_detection.py
+verify_dataset.py

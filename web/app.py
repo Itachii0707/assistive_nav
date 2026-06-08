@@ -43,6 +43,7 @@ socketio = SocketIO(
 detector = None
 frame_count = 0
 last_alert_time = 0
+last_alert_text = ""
 
 
 def to_python(obj):
@@ -102,7 +103,7 @@ def handle_disconnect():
 
 @socketio.on('frame')
 def handle_frame(data):
-    global frame_count, last_alert_time
+    global frame_count, last_alert_time, last_alert_text
 
     if detector is None:
         emit('error', {'message': 'Detector not initialized'})
@@ -143,12 +144,14 @@ def handle_frame(data):
 
         frame_count += 1
 
-        # Alert every 2 seconds
+        # Alert cooldown — 4.5 seconds so speech finishes before next alert
+        # Also skip if same alert repeating
         now = time.time()
         should_speak = False
-        if now - last_alert_time >= 2.0:
+        if alert and now - last_alert_time >= 4.5 and alert != last_alert_text:
             should_speak = True
             last_alert_time = now
+            last_alert_text = alert
 
         # Build detection list — convert ALL numpy types to Python native
         det_list = []
