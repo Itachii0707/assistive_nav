@@ -46,6 +46,12 @@ last_alert_time = 0
 last_alert_text = ""
 stabilizers = {}
 
+# Auto-initialize detector for production WSGI servers (e.g. Gunicorn/Render)
+if os.environ.get("YOLO_AUTO_INIT", "true").lower() == "true" and detector is None:
+    custom_model = os.environ.get("YOLO_MODEL_PATH", None)
+    dual_mode = os.environ.get("YOLO_DUAL_MODE", "false").lower() == "true"
+    print(f"[WEB] Auto-initializing detector (model={custom_model}, dual={dual_mode})...")
+    detector = Detector(custom_model_path=custom_model, dual_mode=dual_mode)
 
 
 def to_python(obj):
@@ -68,6 +74,9 @@ def to_python(obj):
 
 def init_detector(custom_model=None, dual_mode=False):
     global detector
+    if detector is not None:
+        print("[WEB] Detector already initialized.")
+        return
     print("[WEB] Initializing detector...")
     detector = Detector(custom_model_path=custom_model, dual_mode=dual_mode)
     print("[WEB] Detector ready!")

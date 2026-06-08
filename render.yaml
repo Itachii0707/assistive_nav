@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: assistive-navigation-system
+    env: docker
+    plan: free
+    region: oregon
+    envVars:
+      - key: YOLO_AUTO_INIT
+        value: "true"
+      - key: YOLO_DUAL_MODE
+        value: "false"
