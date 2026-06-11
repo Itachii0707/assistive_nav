@@ -27,7 +27,8 @@ from core.risk_classifier import add_risk_levels
 from core.scene_describer import describe_scene, generate_alert
 
 
-app = Flask(__name__, template_folder='templates', static_folder='static')
+vite_dist = os.path.join(project_root, 'web_ui', 'dist')
+app = Flask(__name__, template_folder=vite_dist, static_folder=os.path.join(vite_dist, 'assets'), static_url_path='/assets')
 app.config['SECRET_KEY'] = 'assistive-nav-secret'
 socketio = SocketIO(
     app,
@@ -85,6 +86,14 @@ def init_detector(custom_model=None, dual_mode=False):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+from flask import send_from_directory
+
+@app.route('/<path:path>')
+def serve_static(path):
+    if os.path.exists(os.path.join(vite_dist, path)):
+        return send_from_directory(vite_dist, path)
+    return "Not Found", 404
 
 
 @app.route('/health')
