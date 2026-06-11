@@ -73,9 +73,10 @@ graph TD
 ## 🖥️ Usage
 
 ### Starting the Server
-Run the Flask server with the dual model configuration:
+First, activate your virtual environment, then run the Flask server with the dual model configuration:
 
-```bash
+```powershell
+.\.venv\Scripts\activate
 python run_web.py --port 5000 --dual --model runs/detect/runs/train/combined_model_max/weights/best.pt
 ```
 
