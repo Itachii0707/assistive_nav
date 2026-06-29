@@ -12,7 +12,7 @@
 
 ---
 
-**VisionAI** is a real-time object detection and audio guidance system designed to help visually impaired individuals navigate their surroundings safely. It utilizes deep learning to identify obstacles, assess their risk level based on proximity, and provide natural language voice directions via a highly responsive, modern web interface.
+**Design and Development of an Assistive Navigation System for the Visually Impaired ** is a real-time object detection and audio guidance system designed to help visually impaired individuals navigate their surroundings safely. It utilizes deep learning to identify obstacles, assess their risk level based on proximity, and provide natural language voice directions via a highly responsive, modern web interface.
 
 > [!WARNING]
 > **Deployment & Accuracy Note:** This project relies on a powerful dual-model YOLO architecture running on the backend. The frontend is built with React/Vite. The system must be started via `run_web.py` to ensure the correct models and WebSocket handlers are active.
