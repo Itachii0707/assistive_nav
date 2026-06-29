@@ -1,6 +1,6 @@
 <div align="center">
   <img src="https://img.icons8.com/color/100/visible--v1.png" alt="VisionAI Logo" width="100"/>
-  <h1>VisionAI</h1>
+  <h1>AI-ANSVI</h1>
   <p><strong>Design and development of an assistive navigation system for the visually impaired</strong></p>
   
   [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
